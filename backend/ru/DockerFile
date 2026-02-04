@@ -1,0 +1,23 @@
+FROM ubuntu:noble AS base
+
+ENV CCACHE_DIR=/ccache
+USER root
+
+COPY requirements.txt /lotta-helper-proxy/requirements.txt
+
+# tini is an init system to forward interrupt signals properly
+RUN apt update && apt install -y --no-install-recommends sudo ccache python3 python3-pip
+
+FROM base AS devdeps
+WORKDIR /lotta-helper-proxy
+
+SHELL ["/bin/bash", "-c"]
+RUN python3 -m venv /lotta-helper-proxy/.venv && \
+    source /lotta-helper-proxy/.venv/bin/activate && \
+    pip3 install -r /lotta-helper-proxy/requirements.txt
+
+WORKDIR /lotta-helper-proxy
+
+EXPOSE 8090
+
+ENTRYPOINT []
