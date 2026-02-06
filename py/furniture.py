@@ -51,7 +51,6 @@ def get_recommendations(json):
     model = SentenceTransformer('all-MiniLM-L6-v2')
     recommendations = ""
 
-    
     query = ""
     item_text = ""
 
