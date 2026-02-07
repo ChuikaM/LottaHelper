@@ -32,13 +32,12 @@ def handle_webhook():
         return jsonify({"status": "failed", "message": "No JSON payload"}), 400
 
     try:
-        url = data.get("img-url")
-        if not url:
+        image_url = data.get("img-url")
+        if not image_url:
             logger.warning("Missing 'img-url' in request")
             return jsonify({"status": "failed", "message": "'img-url' missing in request"}), 400
        
-        json = get_furniture_description(url)
-        recomendations = get_recommendations(match_furniture(json))
+        recomendations = get_furniture_description(image_url)
     except Exception as e:
         logger.error(f"Error: {e}")
         return jsonify({"status": "failed", "message": str(e)}), 500
