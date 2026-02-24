@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import base64
 from PIL import Image
+from furniture import FurnitureFinder
 import io
-from furniture import get_furniture_description, FurnitureFinder
 
 app = Flask(__name__)
 CORS(app)
@@ -42,87 +42,26 @@ def retreive_recommendations():
         }), 400
     
     try:
-        # Read and convert image
         img_bytes = file.read()
         pil_image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        
-        # Get furniture description from LLaVA
-        description = get_furniture_description(pil_image)
-        
-        # Find similar furniture items
         finder = FurnitureFinder(
             json_path="../catalog/furnitures_sorted.json",
-            use_cache=True
+            image=pil_image
         )
-        
-        # Get top 3 recommendations
-        results = finder.find_similar(description, top_k=3)
-        
-        # Format results to match expected JSON structure
+        results = finder.find_similar(0.6)
         products = []
         for item, score in results:
-            # Convert similarity score (0-1) to percentage (0-100)
             match_percentage = int(round(score * 100))
-            
-            # Map furniture item fields to expected output format
+
             product = {
                 "icon": item.get("image_url", item.get("url_image", "")),
+                "product": item.get("product_url", item.get("url_furniture", "")),
                 "title": item.get("name", item.get("title", item.get("furniture_name", "Unknown"))),
                 "match": match_percentage,
                 "cost": item.get("price", item.get("cost", 0))
             }
             products.append(product)
-        
-        # Return in expected format
-        return jsonify({"products": products}), 200
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"status": "failed", "msg": str(e)}), 500
 
-
-@app.route('/localrecommendations', methods=['POST'])
-def retreive_localrecommendations():
-    if "file" not in request.form:
-        return jsonify({"status": "failed", "msg": "'file' missing in request"}), 400
-    
-    file = request.form['file']
-    if not file:
-        return jsonify({"status": "failed", "msg": "No selected file"}), 400
-    
-    try:
-        with open(file, 'rb') as image_file:
-            img_bytes = image_file.read()
-        pil_image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        
-        # Get furniture description from LLaVA
-        description = get_furniture_description(pil_image)
-        
-        # Find similar furniture items
-        finder = FurnitureFinder(
-            json_path="../catalog/furnitures_sorted.json",
-            use_cache=True
-        )
-        
-        # Get top 3 recommendations
-        results = finder.find_similar(description, top_k=3)
-        
-        # Format results to match expected JSON structure
-        products = []
-        for item, score in results:
-            # Convert similarity score (0-1) to percentage (0-100)
-            match_percentage = int(round(score * 100))
-            
-            # Map furniture item fields to expected output format
-            product = {
-                "icon": item.get("image_url", item.get("url_image", "")),
-                "title": item.get("name", item.get("title", item.get("furniture_name", "Unknown"))),
-                "match": match_percentage,
-                "cost": item.get("price", item.get("cost", 0))
-            }
-            products.append(product)
-        
-        # Return in expected format
         return jsonify({"products": products}), 200
         
     except Exception as e:
@@ -138,6 +77,7 @@ def upload_image():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    print("hd")
     return jsonify({"status": "ok"}), 200
 
 

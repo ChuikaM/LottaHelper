@@ -4,61 +4,44 @@ from transformers import AutoProcessor, LlavaForConditionalGeneration
 from PIL import Image
 from pathlib import Path
 from typing import List, Dict, Tuple
+from collections import defaultdict
 from sentence_transformers import SentenceTransformer, util
 import sys
-
-if torch.cuda.is_available():
-    device = "cuda"
-    torch_dtype = torch.float16
-elif torch.backends.mps.is_available():
-    device = "mps"
-    torch_dtype = torch.float16
-else:
-    device = "cpu"
-    torch_dtype = torch.float32
-
-print(f"Using device for LLaVA: {device}")
-
-model_id = "llava-hf/llava-1.5-7b-hf"
-processor = AutoProcessor.from_pretrained(model_id)
-
-model = LlavaForConditionalGeneration.from_pretrained(
-    model_id, 
-    torch_dtype=torch_dtype, 
-    low_cpu_mem_usage=False, 
-    device_map=None
-)
-model.to(device)
-
-def get_furniture_description(image: Image) -> str:
-    """Get furniture description from LLaVA model"""
-    try:
-        prompt = "USER: <image>\nDescribe this furniture item in 2-3 sentences. Mention style, color, and type.\nASSISTANT:"
-        inputs = processor(text=prompt, images=image, return_tensors="pt").to(device, torch_dtype)    
-        generate_ids = model.generate(**inputs, max_new_tokens=200)
-        output = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        final_answer = output.split("ASSISTANT:")[-1].strip()
-        return final_answer
-    except Exception as e:
-        print(f"LLaVA Error: {e}")
-        return "modern furniture"
-
-
-FINDER_DEVICE = "cpu"
+import re
 
 CACHE_DIR = Path(".cache")
 EMBEDDINGS_CACHE = CACHE_DIR / "embeddings_cache.json"
 
 class FurnitureFinder:
-    def __init__(self, json_path: str, use_cache: bool = True):
+    def __init__(self, json_path: str, image: Image):
         self.json_path = Path(json_path)
-        self.use_cache = use_cache
+        self.use_cache = True
         self.furniture_items = []
         self.embeddings = None
-        self.device = FINDER_DEVICE
+
+        self.device = "cpu"
+        self.image = image
+        if torch.cuda.is_available():
+            self.device_description = "cuda"
+            self.torch_dtype = torch.float16
+        elif torch.backends.mps.is_available():
+            self.device_description = "mps"
+            self.torch_dtype = torch.float16
+        else:
+            self.device_description = "cpu"
+            self.torch_dtype = torch.float32
+
+        self.processor = AutoProcessor.from_pretrained("llava-hf/llava-1.5-7b-hf")
+        self.model_describer = LlavaForConditionalGeneration.from_pretrained(
+            "llava-hf/llava-1.5-7b-hf", 
+            torch_dtype=self.torch_dtype, 
+            low_cpu_mem_usage=False, 
+            device_map=None
+        )
+        self.model_describer.to(self.device_description)
         
+
         CACHE_DIR.mkdir(exist_ok=True)
-        
         self._load_furniture_data()
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
         self._load_or_compute_embeddings()
@@ -132,25 +115,134 @@ class FurnitureFinder:
                 except Exception as e:
                     print(f"⚠️  Failed to save cache ({type(e).__name__}): {e}")
     
-    def find_similar(self, query: str, top_k: int = 5) -> List[Tuple[Dict, float]]:
-        """Find top-k most similar furniture items to the query description"""
+    def _get_furniture_description(self) -> List[str]:
+        """Get furniture description from LLaVA model as a list of strings"""
+        try:
+            prompt = (
+                "USER: <image>\n"
+                "Identify all furniture items in this interior design image. "
+                "Provide a detailed description for each item. "
+                "Output the result strictly as a JSON array of strings. "
+                "Do not include any markdown formatting or extra text outside the JSON array.\n"
+                "Example: [\"Modern grey sofa\", \"Wooden coffee table\"]\n"
+                "ASSISTANT:"
+            )
+            inputs = self.processor(
+                text=prompt, 
+                images=self.image, 
+                return_tensors="pt"
+            ).to(self.device_description, self.torch_dtype)    
+            generate_ids = self.model_describer.generate(
+                **inputs, 
+                max_new_tokens=512,
+                do_sample=False,
+                temperature=0.1
+            )
+            output = self.processor.batch_decode(
+                generate_ids, 
+                skip_special_tokens=True, 
+                clean_up_tokenization_spaces=False
+            )[0]
+            final_answer = output.split("ASSISTANT:")[-1].strip()
+        
+            furniture_list = self._parse_json_output(final_answer)
+            return furniture_list
+
+        except Exception as e:
+            print(f"[_get_furniture_description] LLaVA Error: {e}")
+            return []
+
+    def _parse_json_output(self, text: str) -> List[str]:
+        """Helper to clean and parse JSON from model output"""
+        try:
+            clean_text = re.sub(r'```json\s*', '', text)
+            clean_text = re.sub(r'```\s*', '', clean_text)
+            clean_text = clean_text.strip()
+            
+            data = json.loads(clean_text)       
+            if isinstance(data, list):
+                cleaned = []
+                for item in data:
+                    item_str = str(item).strip()
+                    item_str = item_str.strip('"\'').rstrip(',').strip()
+                    if item_str and len(item_str) > 3:
+                        cleaned.append(item_str)
+                return cleaned
+            else:
+                return [clean_text] if clean_text else []
+                
+        except json.JSONDecodeError as json_err:
+            print(f"[JSON Parse Error] {json_err}")
+            
+            lines = [line.strip() for line in text.split('\n') if line.strip()]
+            ignore_words = ['here', 'list', 'items', 'output']
+            filtered_lines = []
+            for line in lines:
+                clean_line = line.strip('"\'').rstrip(',').strip()
+                if (not any(word in clean_line.lower() for word in ignore_words) 
+                    and len(clean_line) > 3 
+                    and clean_line not in filtered_lines):
+                    filtered_lines.append(clean_line)
+            return filtered_lines if filtered_lines else [text]
+        
+        except Exception as parse_err:
+            print(f"[Parse Error] {parse_err}")
+            return [text] if text else []
+    
+    def find_similar(self, similarity_threshold: float = 0.0, max_per_category: int = 3) -> List[Tuple[Dict, float]]:
+        """
+        Find all similar furniture items for each detected description.
+        Args:
+            similarity_threshold: Minimum cosine similarity score to include (0.0 to 1.0)
+        Returns:
+            List of tuples: (furniture_item_dict, similarity_score, query_description)
+        """
         if not self.furniture_items or self.embeddings is None:
             return []
 
-        query_embedding = self.model.encode(
-            query, 
-            convert_to_tensor=True,
-            normalize_embeddings=True
-        )
-        query_embedding = query_embedding.to(self.device)
-        cos_scores = util.cos_sim(query_embedding, self.embeddings)[0]
-        top_results = torch.topk(cos_scores, k=min(top_k, len(cos_scores)))
-        
+        descriptions = self._get_furniture_description()
+        if not descriptions:
+            return []
+    
         results = []
-        for score, idx in zip(top_results[0], top_results[1]):
-            results.append((
-                self.furniture_items[idx],
-                float(score)
-            ))
+        seen_items = set()
+        for query in descriptions:
+            try:
+                query_embedding = self.model.encode(
+                    query, 
+                    convert_to_tensor=True,
+                    normalize_embeddings=True
+                ).to(self.device)
+                
+                cos_scores = util.cos_sim(query_embedding, self.embeddings)[0]
+                
+                for idx, score in enumerate(cos_scores):
+                    score_float = float(score)
+                    if score_float >= similarity_threshold:
+                        item = self.furniture_items[idx]
+                        item_key = item.get('id', item.get('name', str(idx)))
+                        
+                        if item_key not in seen_items:
+                            seen_items.add(item_key)
+                            results.append((
+                                item,
+                                score_float
+                            ))
+            
+            except Exception as e:
+                print(f"Error processing query '{query}': {e}")
+                continue
         
-        return results
+        results.sort(key=lambda x: x[1], reverse=True)
+        category_results = defaultdict(list)
+        for item, score in results:
+            category = item.get('category', item.get('type', 'uncategorized'))
+            category_results[category].append((item, score))
+
+        final_results = []
+        for category, items in category_results.items():
+            for item, score in items[:max_per_category]:
+                final_results.append((item, score))
+
+        final_results.sort(key=lambda x: x[1], reverse=True)
+        return final_results
