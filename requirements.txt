@@ -5,8 +5,12 @@ gunicorn==22.0.0
 transformers
 sentence-transformers==2.7.0
 torch
+openai
 torchvision
 torchaudio
 accelerate
 tqdm>=4.66.0
 numpy>=1.24.0
+flask_limiter
+flask_wtf
+celery

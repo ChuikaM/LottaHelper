@@ -1,13 +1,15 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import base64
 from PIL import Image
-from furniture import FurnitureFinder
+from furniture_local import FurnitureFinder
 import io
 
 app = Flask(__name__)
-CORS(app)
-
+# CORS(app)
+# CORS(app, origins=['https://trusted-site.com'])
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 def allowed_file(filename):
@@ -77,9 +79,7 @@ def upload_image():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    print("hd")
     return jsonify({"status": "ok"}), 200
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
