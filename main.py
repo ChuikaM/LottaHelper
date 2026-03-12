@@ -58,12 +58,12 @@ def retrieve_recommendations():
         img_bytes = file.read()
         Image.open(io.BytesIO(img_bytes)).verify()
         
-        # Get database URL from config or request
+        # Ensure database URL is configured in environment
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
             return jsonify({
                 "status": "failed", 
-                "msg": "DATABASE_URL not configured in environment or request"
+                "msg": "DATABASE_URL not configured in environment"
             }), 500
         
         # Queue async task
