@@ -43,7 +43,7 @@ def retrieve_recommendations():
         return jsonify({
             "status": "failed", 
             "msg": f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
-        }), 404
+        }), 415
     
     # Get optional parameters
     try:
