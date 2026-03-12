@@ -2,13 +2,16 @@ import json
 import torch
 import re
 import sys
+import base64
+import io
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
+import os
 
-from transformers import AutoProcessor, LlavaForConditionalGeneration
 from PIL import Image
 from sentence_transformers import SentenceTransformer, util
+from openai import OpenAI  # Requires: pip install openai
 
 from database import DatabaseManager, FurnitureItem
 
@@ -30,32 +33,23 @@ class FurnitureFinder:
         self.embeddings = None
         self.embedding_map: Dict[int, torch.Tensor] = {}  # id -> embedding
         
-        # Device configuration
+        # Device configuration for sentence transformer only
         self.device = "cpu"
         if torch.cuda.is_available():
-            self.device_description = "cuda"
-            self.torch_dtype = torch.float16
+            self.device = "cuda"
         elif torch.backends.mps.is_available():
-            self.device_description = "mps"
-            self.torch_dtype = torch.float16
-        else:
-            self.device_description = "cpu"
-            self.torch_dtype = torch.float32
+            self.device = "mps"
 
-        # Load LLaVA model for image description
-        self.processor = AutoProcessor.from_pretrained("llava-hf/llava-1.5-7b-hf")
-        self.model_describer = LlavaForConditionalGeneration.from_pretrained(
-            "llava-hf/llava-1.5-7b-hf", 
-            torch_dtype=self.torch_dtype, 
-            low_cpu_mem_usage=False, 
-            device_map=None
+        # Initialize OpenAI client for vision API
+        self.openai_client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY")  # Must be set in environment
         )
-        self.model_describer.to(self.device_description)
+        self.vision_model =  os.getenv("OPENAI_VISION_MODEL", "gpt-4o")   # Change if using a different OpenAI vision model
         
         # Initialize database
         self.db = DatabaseManager(database_url)
         
-        # Load sentence transformer for embeddings
+        # Load sentence transformer for embeddings (unchanged)
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
         
         # Load data and compute embeddings
@@ -140,44 +134,65 @@ class FurnitureFinder:
                 except Exception as e:
                     print(f"⚠️  Failed to save cache: {e}")
     
+    def _pil_to_base64(self, image: Image, format: str = "JPEG", max_size: int = 1024) -> str:
+        """Convert PIL image to base64 string for OpenAI API"""
+        # Resize if too large to reduce token cost and API payload
+        if max(image.size) > max_size:
+            image = image.copy()
+            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        # Convert to RGB if needed (for JPEG compatibility)
+        if image.mode in ("RGBA", "P", "LA"):
+            image = image.convert("RGB")
+        
+        buffered = io.BytesIO()
+        image.save(buffered, format=format, quality=85, optimize=True)
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
+    
     def _get_furniture_description(self) -> List[str]:
-        """Get furniture description from LLaVA model"""
+        """Get furniture description from OpenAI GPT-4o vision API"""
+        if not self.image:
+            return []
+            
         try:
+            # Convert image to base64
+            image_base64 = self._pil_to_base64(self.image)
+            
             prompt = (
-                "USER: <image>\n"
                 "Identify all furniture items in this interior design image. "
                 "Provide a detailed description for each item. "
                 "Output the result strictly as a JSON array of strings. "
                 "Do not include any markdown formatting or extra text outside the JSON array.\n"
-                "Example: [\"Modern grey sofa\", \"Wooden coffee table\"]\n"
-                "ASSISTANT:"
+                "Example: [\"Modern grey sofa with chrome legs\", \"Round wooden coffee table with glass top\"]"
             )
             
-            inputs = self.processor(
-                text=prompt, 
-                images=self.image, 
-                return_tensors="pt"
-            ).to(self.device_description, self.torch_dtype)    
-            
-            generate_ids = self.model_describer.generate(
-                **inputs, 
-                max_new_tokens=512,
-                do_sample=False,
+            response = self.openai_client.chat.completions.create(
+                model=self.vision_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}",
+                                    "detail": "auto"  # "low", "high", or "auto"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=1024,
                 temperature=0.1
             )
             
-            output = self.processor.batch_decode(
-                generate_ids, 
-                skip_special_tokens=True, 
-                clean_up_tokenization_spaces=False
-            )[0]
-            
-            final_answer = output.split("ASSISTANT:")[-1].strip()
+            final_answer = response.choices[0].message.content.strip()
             furniture_list = self._parse_json_output(final_answer)
             return furniture_list
 
         except Exception as e:
-            print(f"[_get_furniture_description] LLaVA Error: {e}")
+            print(f"[_get_furniture_description] OpenAI API Error: {e}")
             return []
 
     def _parse_json_output(self, text: str) -> List[str]:
@@ -300,3 +315,4 @@ class FurnitureFinder:
         """Cleanup resources"""
         if hasattr(self, 'db'):
             self.db.close_session()
+        # OpenAI client doesn't require explicit cleanup
