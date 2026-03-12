@@ -158,7 +158,7 @@ def text_search_recommendations():
             return jsonify({"status": "failed", "msg": "DATABASE_URL not configured"}), 500
         
         # Initialize finder for text search
-        from furniture_local import FurnitureFinder
+        from furniture import FurnitureFinder
         finder = FurnitureFinder(
             database_url=database_url,
             image=None,  # No image for text search
