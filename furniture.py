@@ -85,18 +85,30 @@ class FurnitureFinder:
                     current_ids = {item['id'] for item in self.furniture_items}
                     
                     if cache_ids == current_ids and all('embedding' in item for item in cache_data):
-                        self.embeddings = torch.tensor(
-                            [item['embedding'] for item in cache_data],
-                            dtype=torch.float32,
-                            device=self.device
-                        )
-                        # Build lookup map
-                        for item in cache_data:
-                            self.embedding_map[item['id']] = torch.tensor(
-                                item['embedding'], dtype=torch.float32, device=self.device
-                            )
+                        # Build a mapping from id to raw embedding from the cache
+                        id_to_embedding = {
+                            item['id']: item['embedding'] for item in cache_data
+                        }
+                        ordered_tensors: List[torch.Tensor] = []
+                        self.embedding_map.clear()
                         cache_valid = True
-                        print(f"✅ Loaded {len(cache_data)} embeddings from cache")
+                        # Rebuild embeddings tensor in the same order as self.furniture_items
+                        for furniture_item in self.furniture_items:
+                            fid = furniture_item['id']
+                            embedding_data = id_to_embedding.get(fid)
+                            if embedding_data is None:
+                                cache_valid = False
+                                break
+                            tensor = torch.tensor(
+                                embedding_data,
+                                dtype=torch.float32,
+                                device=self.device,
+                            )
+                            ordered_tensors.append(tensor)
+                            self.embedding_map[fid] = tensor
+                        if cache_valid and ordered_tensors:
+                            self.embeddings = torch.stack(ordered_tensors)
+                            print(f"✅ Loaded {len(cache_data)} embeddings from cache")
                         
             except Exception as e:
                 print(f"⚠️  Cache load error ({type(e).__name__}): {e} - recomputing...")
