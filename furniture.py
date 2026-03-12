@@ -49,8 +49,8 @@ class FurnitureFinder:
         # Initialize database
         self.db = DatabaseManager(database_url)
         
-        # Load sentence transformer for embeddings (unchanged)
-        self.model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Load sentence transformer for embeddings on the selected device
+        self.model = SentenceTransformer("all-MiniLM-L6-v2", device=self.device)
         
         # Load data and compute embeddings
         CACHE_DIR.mkdir(exist_ok=True)
