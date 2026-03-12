@@ -1,0 +1,46 @@
+services:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./furniture_catalog.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FLASK_LIMITER_STORAGE_URL=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app/data
+      - ./.cache:/app/.cache
+    command: gunicorn -c gunicorn.conf.py main:app
+
+  celery:
+    build: .
+    command: celery -A celery_worker worker --loglevel=info --pool=solo --concurrency=1
+    environment:
+      - DATABASE_URL=sqlite:///./furniture_catalog.db
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app/data
+      - ./.cache:/app/.cache
+
+volumes:
+  redis_data:
