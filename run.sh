@@ -2,7 +2,9 @@
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    set -a
+    . .env
+    set +a
 fi
 
 # Create local log directories
