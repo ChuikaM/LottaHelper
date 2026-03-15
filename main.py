@@ -19,6 +19,17 @@ limiter = Limiter(
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+ALLOWED_MIMETYPES = {'image/png', 'image/jpg', 'image/jpeg'}
+def allowed_mimetype(file):
+    return file.content_type not in ALLOWED_MIMETYPES
+
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+def allowed_file_size(file):
+    file.seek(0, 2)
+    if file.tell() > MAX_IMAGE_SIZE:
+        return False
+    file.seek(0)
+    return True
 
 
 @app.route('/recommendations', methods=['POST'])
@@ -38,12 +49,22 @@ def retrieve_recommendations():
     if not allowed_file(file.filename):
         return jsonify({
             "status": "failed", 
-            "msg": f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+            "msg": f"Unsupported file type."
         }), 415
+    if allowed_mimetype(file):
+        return jsonify({
+            "status": "failed",
+            "msg": "Invalid MIME type"
+        }), 415
+    if not allowed_file_size(file):
+        return jsonify({
+            "status": "failed",
+            "msg": "File too large"
+        }), 413
     
     try:
         img_bytes = file.read()
-        Image.open(io.BytesIO(img_bytes)).verify()
+        Image.open(io.BytesIO(img_bytes))
         
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
@@ -62,10 +83,10 @@ def retrieve_recommendations():
             "message": "Request queued. Poll /recommendations/<task_id> for results.",
             "estimated_time_seconds": 30
         }), 202
-        
+    
     except Exception as e:
         app.logger.error(f"Error queuing task: {e}")
-        return jsonify({"status": "failed", "msg": str(e)}), 500
+        return jsonify({"status": "failed", "msg": "Failed to process image"}), 500
 
 
 @app.route('/recommendations/<task_id>', methods=['GET'])
