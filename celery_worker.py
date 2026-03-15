@@ -72,7 +72,6 @@ def process_furniture_recommendation(
         
         results = finder.find_similar(
             similarity_threshold=similarity_threshold,
-            similarity_threshold=similarity_threshold,
             max_per_category=3
         )
         
