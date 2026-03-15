@@ -63,11 +63,15 @@ def process_furniture_recommendation(
         similarity_threshold_env = os.getenv('SIMILARITY_THRESHOLD')
         try:
             similarity_threshold = float(similarity_threshold_env) if similarity_threshold_env is not None else 0.6
+            if similarity_threshold < 0.0:
+                similarity_threshold = 0.0
+            elif similarity_threshold > 1.0:
+                similarity_threshold = 1.0
         except ValueError:
             similarity_threshold = 0.6
-
+        
         results = finder.find_similar(
-            similarity_threshold=0.6,
+            similarity_threshold=similarity_threshold,
             similarity_threshold=similarity_threshold,
             max_per_category=3
         )
