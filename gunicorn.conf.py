@@ -10,7 +10,7 @@ errorlog = "./logs/gunicorn/error.log"
 loglevel = "info"
 capture_output = True
 preload_app = True
-worker_class = "gthread"
+worker_class = "thread"
 
 def on_starting(server):
     print("Gunicorn starting")

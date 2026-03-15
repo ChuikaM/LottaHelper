@@ -11,7 +11,7 @@ class FurnitureItem(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     furniture_name = Column(String(255), nullable=False, index=True)
-    description = Column(Text, nullable=False)  # Used for embeddings
+    description = Column(Text, nullable=False)
     category = Column(String(100), nullable=True, index=True)
     image_url = Column(String(512), nullable=True)
     product_url = Column(String(512), nullable=True)
@@ -19,7 +19,6 @@ class FurnitureItem(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Full-text search index for description (database-specific)
     __table_args__ = (
         Index('idx_furniture_description', 'description', postgresql_using='gin'),
         Index('idx_furniture_category_price', 'category', 'price'),
@@ -46,7 +45,6 @@ class DatabaseManager:
             'sqlite:///./furniture_catalog.db'
         )
         
-        # Configure engine based on database type
         if self.database_url.startswith('postgresql'):
             self.engine = create_engine(
                 self.database_url,

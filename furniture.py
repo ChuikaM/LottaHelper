@@ -5,15 +5,15 @@ import sys
 import base64
 import io
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 from collections import defaultdict
 import os
 
 from PIL import Image
 from sentence_transformers import SentenceTransformer, util
-from openai import OpenAI  # Requires: pip install openai
+from openai import OpenAI
 
-from database import DatabaseManager, FurnitureItem
+from database import DatabaseManager
 
 CACHE_DIR = Path(".cache")
 EMBEDDINGS_CACHE = CACHE_DIR / "embeddings_cache_sql.json"
@@ -301,27 +301,6 @@ class FurnitureFinder:
 
         final_results.sort(key=lambda x: x[1], reverse=True)
         return final_results
-    
-    def search_by_text(self, query: str, top_k: int = 10) -> List[Tuple[Dict, float]]:
-        """Direct text search using embeddings (without image)"""
-        if not self.furniture_items or self.embeddings is None:
-            return []
-        
-        query_embedding = self.model.encode(
-            query,
-            convert_to_tensor=True,
-            normalize_embeddings=True
-        ).to(self.device)
-        
-        cos_scores = util.cos_sim(query_embedding, self.embeddings)[0]
-        top_results = torch.topk(cos_scores, k=min(top_k, len(cos_scores)))
-        
-        results = []
-        for score, idx in zip(top_results.values, top_results.indices):
-            item = self.furniture_items[idx]
-            results.append((item, float(score)))
-        
-        return results
     
     def close(self):
         """Cleanup resources"""
