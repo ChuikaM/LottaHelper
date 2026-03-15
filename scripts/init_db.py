@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Initialize database and import data from JSON"""
 
 import json

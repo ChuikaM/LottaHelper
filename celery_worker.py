@@ -4,6 +4,7 @@ from celery import Celery
 from PIL import Image
 import io
 import os
+import logging
 
 from furniture import FurnitureFinder
 
@@ -58,9 +59,16 @@ def process_furniture_recommendation(
         self.update_state(state='PROGRESS', meta={
             'current': 75, 'total': 100, 'status': 'Finding similar items...'
         })
-        
+
+        similarity_threshold_env = os.getenv('SIMILARITY_THRESHOLD')
+        try:
+            similarity_threshold = float(similarity_threshold_env) if similarity_threshold_env is not None else 0.6
+        except ValueError:
+            similarity_threshold = 0.6
+
         results = finder.find_similar(
             similarity_threshold=0.6,
+            similarity_threshold=similarity_threshold,
             max_per_category=3
         )
         
@@ -93,9 +101,8 @@ def process_furniture_recommendation(
         }
         
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        return {"status": "failed", "error": str(e), "details": error_details}
+        logging.exception("Error while processing furniture recommendation task")
+        return {"status": "failed", "error": str(e)}
     
     finally:
         if finder:
