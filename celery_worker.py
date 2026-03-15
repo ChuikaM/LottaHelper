@@ -1,3 +1,5 @@
+"""Celery workers"""
+
 from celery import Celery
 from PIL import Image
 import io
@@ -23,8 +25,7 @@ celery_app.conf.update(
 @celery_app.task(bind=True, name='process_furniture_recommendation')
 def process_furniture_recommendation(
     self, 
-    image_bytes: bytes, 
-    similarity_threshold: float = 0.6
+    image_bytes: bytes
 ):
     """Background task to process furniture recommendations"""
     finder = None
@@ -59,7 +60,7 @@ def process_furniture_recommendation(
         })
         
         results = finder.find_similar(
-            similarity_threshold=similarity_threshold,
+            similarity_threshold=0.6,
             max_per_category=3
         )
         

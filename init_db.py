@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 """Initialize database and import data from JSON"""
 
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
 
 from database import DatabaseManager, FurnitureItem

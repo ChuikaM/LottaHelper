@@ -1,3 +1,5 @@
+"""Main Flask App"""
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -5,7 +7,7 @@ from flask_limiter.util import get_remote_address
 import os
 
 from celery_worker import celery_app, process_furniture_recommendation
-from database import DatabaseManager, FurnitureItem
+from database import DatabaseManager
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +18,7 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -24,9 +26,9 @@ def allowed_file(filename):
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
+    """Submit image for async furniture recommendation processing"""
     from PIL import Image
     import io
-    """Submit image for async furniture recommendation processing"""
     
     if "file" not in request.files:
         return jsonify({"status": "failed", "msg": "'file' field missing in request"}), 400
