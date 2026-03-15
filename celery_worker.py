@@ -5,6 +5,7 @@ from PIL import Image
 import io
 import os
 import logging
+import math
 
 from furniture import FurnitureFinder
 
@@ -67,6 +68,8 @@ def process_furniture_recommendation(
                 similarity_threshold = 0.0
             elif similarity_threshold > 1.0:
                 similarity_threshold = 1.0
+            if not math.isfinite(similarity_threshold):
+                 similarity_threshold = 0.6
         except ValueError:
             similarity_threshold = 0.6
         
