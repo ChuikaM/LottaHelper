@@ -21,13 +21,13 @@ services:
     volumes:
       - ./:/app/data
       - ./.cache:/app/.cache
-    command: gunicorn -c app/gunicorn.conf.py main:app
+    command: gunicorn -c app/gunicorn/conf.py main:app
 
   celery:
     build: .
     environment:
       - .env
-    command: celery -A celery_worker worker --loglevel=info --pool=solo --concurrency=1
+    command: celery -A app/celery/tasks worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
       redis:
         condition: service_healthy

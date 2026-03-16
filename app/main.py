@@ -2,12 +2,18 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+
+from PIL import Image, UnidentifiedImageError
 import os
-
-from celery_worker import celery_app, process_furniture_recommendation
-from database import DatabaseManager
-
+import io
 import logging
+
+from app.celery.tasks import celery_app, process_furniture_recommendation
+from app.database import DatabaseManager
+from app.image_manager import ImageManager
+
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -18,65 +24,24 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-ALLOWED_MIMETYPES = {'image/png', 'image/jpg', 'image/jpeg'}
-def allowed_mimetype(file):
-    return file.content_type in ALLOWED_MIMETYPES
-
-MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
-def allowed_file_size(file):
-    file.seek(0, 2)
-    if file.tell() > MAX_IMAGE_SIZE:
-        return False
-    file.seek(0)
-    return True
-
+app.run(
+    host=os.getenv('FLASK_HOST', '0.0.0.0'), 
+    port=int(os.getenv('FLASK_PORT', 8000)), 
+    debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
+    threaded=True
+)
 
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
     """Submit image for async furniture recommendation processing"""
-    from PIL import Image, UnidentifiedImageError
-    import io
     
-    if "file" not in request.files:
-        logging.warning("'file' field missing in request")
-        return jsonify({
-            "status": "failed", 
-            "msg": "'file' field missing in request"
-        }), 400
-    
-    file = request.files['file']
-    if not file or file.filename == '':
-        logging.warning("No file selected")
-        return jsonify({
-            "status": "failed", 
-            "msg": "No file selected"
-        }), 400
-    
-    if not allowed_file(file.filename):
-        logging.warning("Unsupported file type")
-        return jsonify({
-            "status": "failed", 
-            "msg": f"Unsupported file type"
-        }), 415
-    if not allowed_mimetype(file):
-        logging.warning("Invalid MIME type")
-        return jsonify({
-            "status": "failed",
-            "msg": "Invalid MIME type"
-        }), 415
-    if not allowed_file_size(file):
-        logging.warning("File too large")
-        return jsonify({
-            "status": "failed",
-            "msg": "File too large"
-        }), 413
+    imageManager = ImageManager()
+    if not imageManager.image_allowed(request.files):
+        return jsonify({"status":"{checker.response()}"})
     
     try:
-        img_bytes = file.read()
+        img_bytes = imageManager.allowed_file().read()
         try:
             with Image.open(io.BytesIO(img_bytes)) as img:
                 img.verify()
@@ -107,7 +72,6 @@ def retrieve_recommendations():
             "message": "Request queued. Poll /recommendations/<task_id> for results.",
             "estimated_time_seconds": 30
         }), 202
-    
     except Exception as e:
         logging.exception(f"Error queuing task: {e}")
         return jsonify({"status": "failed", "msg": "Failed to process image"}), 500
@@ -167,42 +131,6 @@ def get_recommendation_status(task_id):
         }), 202
 
 
-@app.route('/catalog/items/<int:item_id>', methods=['GET'])
-def get_catalog_item(item_id):
-    """Get single furniture item by ID"""
-    try:
-        database_url = os.getenv('DATABASE_URL')
-        if not database_url:
-            logging.error("DATABASE_URL not configured")
-            return jsonify({
-                "status": "failed",
-                "msg": "DATABASE_URL not configured"
-            }), 500
-        
-        db = DatabaseManager(database_url)
-        item = db.get_item_by_id(item_id)
-        db.close_session()
-        
-        if not item:
-            logging.error("Item not found")
-            return jsonify({
-                "status": "failed",
-                "msg": "Item not found"
-            }), 404
-        
-        return jsonify({
-            "status": "success",
-            "item": item.to_dict()
-        }), 200
-        
-    except Exception as e:
-        logging.exception(f"Get item error: {e}")
-        return jsonify({
-            "status": "failed",
-            "msg": "An error occurred while retrieving the catalog item"
-        }), 500
-
-
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint with database connectivity test"""
@@ -247,15 +175,3 @@ def internal_error(e):
         "status": "failed",
         "msg": "Internal server error"
     }), 500
-
-
-if __name__ == '__main__':
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    app.run(
-        host=os.getenv('FLASK_HOST', '0.0.0.0'), 
-        port=int(os.getenv('FLASK_PORT', 8000)), 
-        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
-        threaded=True
-    )
