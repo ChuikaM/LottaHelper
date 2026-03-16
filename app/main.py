@@ -24,26 +24,18 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
-if __name__ == "__main__":
-    app.run(
-        host=os.getenv('FLASK_HOST', '0.0.0.0'),
-        port=int(os.getenv('FLASK_PORT', 8000)),
-        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
-        threaded=True
-    )
-
 
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
     """Submit image for async furniture recommendation processing"""
     
-    imageManager = ImageManager()
-    if not imageManager.image_allowed(request.files):
-        return jsonify(imageManager.response()), imageManager.status_code()
+    image_manager = ImageManager()
+    if not image_manager.image_allowed(request.files):
+        return jsonify(image_manager.response()), image_manager.status_code()
     
     try:
-        img_bytes = imageManager.file().read()
+        img_bytes = image_manager.file().read()
         try:
             with Image.open(io.BytesIO(img_bytes)) as img:
                 img.verify()
@@ -177,3 +169,12 @@ def internal_error(e):
         "status": "failed",
         "msg": "Internal server error"
     }), 500
+
+
+if __name__ == "__main__":
+    app.run(
+        host=os.getenv('FLASK_HOST', '0.0.0.0'),
+        port=int(os.getenv('FLASK_PORT', 8000)),
+        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
+        threaded=True
+    )
