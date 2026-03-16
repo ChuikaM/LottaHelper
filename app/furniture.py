@@ -306,4 +306,3 @@ class FurnitureFinder:
         """Cleanup resources"""
         if hasattr(self, 'db'):
             self.db.close_session()
-        # OpenAI client doesn't require explicit cleanup
