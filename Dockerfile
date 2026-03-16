@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p ./logs/gunicorn ./logs/celery .cache
+RUN mkdir -p /var/log/gunicorn /var/log/celery .cache
 
 EXPOSE 8000
 

@@ -7,7 +7,7 @@ import logging
 import math
 
 from furniture import FurnitureFinder
-from app import celery_app
+from _celery.celery_app import celery_app
 
 
 @celery_app.task(bind=True, name='process_furniture_recommendation')

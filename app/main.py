@@ -7,10 +7,10 @@ import os
 import io
 import logging
 
-from app.celery.app import celery_app
-from app.celery.tasks import process_furniture_recommendation
-from app.database import DatabaseManager
-from app.image_manager import ImageManager
+from _celery.celery_app import celery_app
+from _celery.tasks import process_furniture_recommendation
+from database import DatabaseManager
+from image_manager import ImageManager
 
 from sqlalchemy import text
 

@@ -9,6 +9,23 @@ services:
       timeout: 5s
       retries: 5
 
+  celery:
+    build: .
+    env_file:
+      - .env
+    # NOTE: The same .env file is used here. It should include, at minimum:
+     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
+     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
+     #   - DATABASE_URL           (if Celery tasks access the database)
+     #   - OPENAI_API_KEY         (if tasks call OpenAI)
+    command: celery -A app._celery.celery_app:celery_app worker --loglevel=info --pool=solo --concurrency=1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app/data
+      - ./.cache:/app/.cache
+
   api:
     build: .
     env_file:
@@ -27,23 +44,6 @@ services:
       - ./:/app/data
       - ./.cache:/app/.cache
     command: gunicorn -c app/gunicorn/conf.py app.main:app
-
-  celery:
-    build: .
-    env_file:
-      - .env
-    # NOTE: The same .env file is used here. It should include, at minimum:
-     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
-     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
-     #   - DATABASE_URL           (if Celery tasks access the database)
-     #   - OPENAI_API_KEY         (if tasks call OpenAI)
-    command: celery -A app.celery.app:celery_app worker --loglevel=info --pool=solo --concurrency=1
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./:/app/data
-      - ./.cache:/app/.cache
 
 volumes:
   redis_data:
