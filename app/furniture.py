@@ -32,7 +32,6 @@ VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
 SENTENCE_MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=DEVICE)
 
 
-
 class FurnitureFinder:
     def __init__(
         self, 

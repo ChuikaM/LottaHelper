@@ -23,8 +23,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./:/app/data
-      - ./.cache:/app/.cache
+      - ./:/lottahelper
+    working_dir: /lottahelper
 
   api:
     build: .
@@ -41,9 +41,10 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./:/app/data
-      - ./.cache:/app/.cache
-    command: gunicorn -c app/gunicorn/conf.py app.main:app
+      - ./:/lottahelper
+    working_dir: /lottahelper
+    #command: python main.py
+    command: gunicorn -c app/gunicorn/gunicorn.conf.py main:app
 
 volumes:
   redis_data:

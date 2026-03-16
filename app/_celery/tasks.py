@@ -6,8 +6,8 @@ import os
 import logging
 import math
 
-from furniture import FurnitureFinder
-from _celery.celery_app import celery_app
+# from furniture import FurnitureFinder
+from .celery_app import celery_app
 
 
 @celery_app.task(bind=True, name='process_furniture_recommendation')
@@ -38,11 +38,11 @@ def process_furniture_recommendation(
             'current': 50, 'total': 100, 'status': 'Initializing furniture finder...'
         })
         
-        finder = FurnitureFinder(
-            database_url=db_url,
-            image=pil_image,
-            use_cache=True
-        )
+        # finder = FurnitureFinder(
+        #     database_url=db_url,
+        #     image=pil_image,
+        #     use_cache=True
+        # )
         
         self.update_state(state='PROGRESS', meta={
             'current': 75, 'total': 100, 'status': 'Finding similar items...'
@@ -60,10 +60,11 @@ def process_furniture_recommendation(
         except ValueError:
             similarity_threshold = 0.6
         
-        results = finder.find_similar(
-            similarity_threshold=similarity_threshold,
-            max_per_category=3
-        )
+        # results = finder.find_similar(
+        #     similarity_threshold=similarity_threshold,
+        #     max_per_category=3
+        # )
+        results = []
         
         self.update_state(state='PROGRESS', meta={
             'current': 90, 'total': 100, 'status': 'Formatting results...'
@@ -94,9 +95,10 @@ def process_furniture_recommendation(
         }
         
     except Exception as e:
+        logging.error(f"❌ Task {self.request.id} failed: {e}")
         logging.exception("Error while processing furniture recommendation task")
         return {"status": "failed", "error": str(e)}
     
-    finally:
-        if finder:
-            finder.close()
+    # finally:
+    #     if finder:
+    #         finder.close()

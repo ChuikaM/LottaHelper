@@ -42,7 +42,7 @@ class DatabaseManager:
     def __init__(self, database_url: str = None):
         self.database_url = database_url or os.getenv(
             'DATABASE_URL', 
-            'sqlite:///./furniture_catalog.db'
+            'sqlite:///lottahelper/data/furniture_catalog.db'
         )
         
         if self.database_url.startswith('postgresql'):

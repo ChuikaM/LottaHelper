@@ -7,10 +7,10 @@ import os
 import io
 import logging
 
-from _celery.celery_app import celery_app
-from _celery.tasks import process_furniture_recommendation
-from database import DatabaseManager
-from image_manager import ImageManager
+from app._celery.celery_app import celery_app
+from app._celery.tasks import process_furniture_recommendation
+from app.database import DatabaseManager
+from app.image_manager import ImageManager
 
 from sqlalchemy import text
 
@@ -155,7 +155,7 @@ def health_check():
             "status": "degraded",
             "error": "Can't check service's health"
         }), 503
-
+    
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
