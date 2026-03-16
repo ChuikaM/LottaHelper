@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -19,7 +18,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app, 
+    default_limits=["200 per day", "50 per hour"]
+)
 
 if __name__ == "__main__":
     app.run(
@@ -28,12 +31,6 @@ if __name__ == "__main__":
         debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
         threaded=True
     )
-
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app, 
-    default_limits=["200 per day", "50 per hour"]
-)
 
 
 @app.route('/recommendations', methods=['POST'])

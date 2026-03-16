@@ -13,6 +13,11 @@ services:
     build: .
     env_file:
       - .env
+    # NOTE: The same .env file is used here. It should include, at minimum:
+     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
+     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
+     #   - DATABASE_URL           (if Celery tasks access the database)
+     #   - OPENAI_API_KEY         (if tasks call OpenAI)
     ports:
       - "8000:8000"
     depends_on:
@@ -27,6 +32,11 @@ services:
     build: .
     env_file:
       - .env
+    # NOTE: The same .env file is used here. It should include, at minimum:
+     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
+     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
+     #   - DATABASE_URL           (if Celery tasks access the database)
+     #   - OPENAI_API_KEY         (if tasks call OpenAI)
     command: celery -A app.celery.tasks worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
       redis:
