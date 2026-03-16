@@ -173,7 +173,7 @@ def get_catalog_item(item_id):
     try:
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
-            logging.exception("DATABASE_URL not configured")
+            logging.error("DATABASE_URL not configured")
             return jsonify({
                 "status": "failed",
                 "msg": "DATABASE_URL not configured"
@@ -184,7 +184,7 @@ def get_catalog_item(item_id):
         db.close_session()
         
         if not item:
-            logging.exception("Item not found")
+            logging.error("Item not found")
             return jsonify({
                 "status": "failed",
                 "msg": "Item not found"
@@ -199,7 +199,7 @@ def get_catalog_item(item_id):
         logging.exception(f"Get item error: {e}")
         return jsonify({
             "status": "failed",
-            "msg": "Can't retreive recommendation's task"
+            "msg": "An error occurred while retrieving the catalog item"
         }), 500
 
 
