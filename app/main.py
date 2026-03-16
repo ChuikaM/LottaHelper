@@ -8,9 +8,12 @@ import os
 import io
 import logging
 
-from app.celery.tasks import celery_app, process_furniture_recommendation
+from app.celery.app import celery_app
+from app.celery.tasks import process_furniture_recommendation
 from app.database import DatabaseManager
 from app.image_manager import ImageManager
+
+from sqlalchemy import text
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,18 +21,20 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+if __name__ == "__main__":
+    app.run(
+        host=os.getenv('FLASK_HOST', '0.0.0.0'),
+        port=int(os.getenv('FLASK_PORT', 8000)),
+        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
+        threaded=True
+    )
+
 limiter = Limiter(
     key_func=get_remote_address,
     app=app, 
     default_limits=["200 per day", "50 per hour"]
 )
 
-app.run(
-    host=os.getenv('FLASK_HOST', '0.0.0.0'), 
-    port=int(os.getenv('FLASK_PORT', 8000)), 
-    debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true',
-    threaded=True
-)
 
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -38,10 +43,10 @@ def retrieve_recommendations():
     
     imageManager = ImageManager()
     if not imageManager.image_allowed(request.files):
-        return jsonify({"status":"{checker.response()}"})
+        return jsonify(imageManager.response()), imageManager.status_code()
     
     try:
-        img_bytes = imageManager.allowed_file().read()
+        img_bytes = imageManager.file().read()
         try:
             with Image.open(io.BytesIO(img_bytes)) as img:
                 img.verify()
@@ -142,7 +147,7 @@ def health_check():
             try:
                 db = DatabaseManager(database_url)
                 session = db.get_session()
-                session.execute("SELECT 1")  # Test connection
+                session.execute(text("SELECT 1"))
                 db.close_session()
                 db_status = "connected"
             except Exception as e:

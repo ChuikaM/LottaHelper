@@ -15,4 +15,4 @@ RUN mkdir -p ./logs/gunicorn ./logs/celery .cache
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-c", "app/gunicorn.conf.py", "main:app"]
+CMD ["gunicorn", "-c", "app/gunicorn/conf.py", "app.main:app"]
