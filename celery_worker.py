@@ -45,6 +45,7 @@ def process_furniture_recommendation(
         
         db_url = os.getenv('DATABASE_URL')
         if not db_url:
+            logging.error("DATABASE_URL not configured")
             raise ValueError("DATABASE_URL not configured")
         
         self.update_state(state='PROGRESS', meta={
@@ -69,7 +70,7 @@ def process_furniture_recommendation(
             elif similarity_threshold > 1.0:
                 similarity_threshold = 1.0
             if not math.isfinite(similarity_threshold):
-                 similarity_threshold = 0.6
+                similarity_threshold = 0.6
         except ValueError:
             similarity_threshold = 0.6
         

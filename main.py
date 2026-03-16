@@ -7,6 +7,8 @@ import os
 from celery_worker import celery_app, process_furniture_recommendation
 from database import DatabaseManager
 
+import logging
+
 app = Flask(__name__)
 CORS(app)
 
@@ -21,7 +23,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 ALLOWED_MIMETYPES = {'image/png', 'image/jpg', 'image/jpeg'}
 def allowed_mimetype(file):
-    return file.content_type not in ALLOWED_MIMETYPES
+    return file.content_type in ALLOWED_MIMETYPES
 
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 def allowed_file_size(file):
@@ -36,27 +38,38 @@ def allowed_file_size(file):
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
     """Submit image for async furniture recommendation processing"""
-    from PIL import Image
+    from PIL import Image, UnidentifiedImageError
     import io
     
     if "file" not in request.files:
-        return jsonify({"status": "failed", "msg": "'file' field missing in request"}), 400
+        logging.warning("'file' field missing in request")
+        return jsonify({
+            "status": "failed", 
+            "msg": "'file' field missing in request"
+        }), 400
     
     file = request.files['file']
     if not file or file.filename == '':
-        return jsonify({"status": "failed", "msg": "No file selected"}), 400
-    
-    if not allowed_file(file.filename):
+        logging.warning("No file selected")
         return jsonify({
             "status": "failed", 
-            "msg": f"Unsupported file type."
+            "msg": "No file selected"
+        }), 400
+    
+    if not allowed_file(file.filename):
+        logging.warning("Unsupported file type")
+        return jsonify({
+            "status": "failed", 
+            "msg": f"Unsupported file type"
         }), 415
-    if allowed_mimetype(file):
+    if not allowed_mimetype(file):
+        logging.warning("Invalid MIME type")
         return jsonify({
             "status": "failed",
             "msg": "Invalid MIME type"
         }), 415
     if not allowed_file_size(file):
+        logging.warning("File too large")
         return jsonify({
             "status": "failed",
             "msg": "File too large"
@@ -64,10 +77,21 @@ def retrieve_recommendations():
     
     try:
         img_bytes = file.read()
-        Image.open(io.BytesIO(img_bytes))
+        try:
+            with Image.open(io.BytesIO(img_bytes)) as img:
+                img.verify()
+            with Image.open(io.BytesIO(img_bytes)) as img:
+                img.load()
+        except (UnidentifiedImageError, OSError, ValueError) as e:
+            logging.warning(f"Invalid image data provided: {e}")
+            return jsonify({
+                "status": "failed",
+                "msg": "Invalid or corrupted image file"
+            }), 400
         
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
+            logging.warning("DATABASE_URL not configured in environment")
             return jsonify({
                 "status": "failed", 
                 "msg": "DATABASE_URL not configured in environment"
@@ -85,7 +109,7 @@ def retrieve_recommendations():
         }), 202
     
     except Exception as e:
-        app.logger.error(f"Error queuing task: {e}")
+        logging.exception(f"Error queuing task: {e}")
         return jsonify({"status": "failed", "msg": "Failed to process image"}), 500
 
 
@@ -137,7 +161,10 @@ def get_recommendation_status(task_id):
             "message": "Task failed, retrying..."
         }), 202
     else:
-        return jsonify({"status": task.state, "task_id": task_id}), 202
+        return jsonify({
+            "status": task.state, 
+            "task_id": task_id
+        }), 202
 
 
 @app.route('/catalog/items/<int:item_id>', methods=['GET'])
@@ -146,14 +173,22 @@ def get_catalog_item(item_id):
     try:
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
-            return jsonify({"status": "failed", "msg": "DATABASE_URL not configured"}), 500
+            logging.exception("DATABASE_URL not configured")
+            return jsonify({
+                "status": "failed",
+                "msg": "DATABASE_URL not configured"
+            }), 500
         
         db = DatabaseManager(database_url)
         item = db.get_item_by_id(item_id)
         db.close_session()
         
         if not item:
-            return jsonify({"status": "failed", "msg": "Item not found"}), 404
+            logging.exception("Item not found")
+            return jsonify({
+                "status": "failed",
+                "msg": "Item not found"
+            }), 404
         
         return jsonify({
             "status": "success",
@@ -161,8 +196,11 @@ def get_catalog_item(item_id):
         }), 200
         
     except Exception as e:
-        app.logger.error(f"Get item error: {e}")
-        return jsonify({"status": "failed", "msg": str(e)}), 500
+        logging.exception(f"Get item error: {e}")
+        return jsonify({
+            "status": "failed",
+            "msg": "Can't retreive recommendation's task"
+        }), 500
 
 
 @app.route('/health', methods=['GET'])
@@ -190,30 +228,11 @@ def health_check():
         }), 200
         
     except Exception as e:
-        return jsonify({"status": "degraded", "error": str(e)}), 503
-
-
-@app.route('/upload', methods=['POST'])
-@limiter.limit("50 per hour")
-def upload_image():
-    """Upload image for catalog (placeholder - implement actual storage logic)"""
-    if "file" not in request.files:
-        return jsonify({"status": "failed", "msg": "'file' missing"}), 400
-    
-    file = request.files['file']
-    if not file or file.filename == '':
-        return jsonify({"status": "failed", "msg": "No file selected"}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({"status": "failed", "msg": "Unsupported file type"}), 400
-    
-    # TODO: Implement actual image storage and database insertion
-    # This is a placeholder response
-    return jsonify({
-        "status": "success", 
-        "msg": "Image uploaded (storage not implemented)",
-        "filename": file.filename
-    }), 200
+        logging.exception(f"Can't check service's health. msg: {e}")
+        return jsonify({
+            "status": "degraded",
+            "error": "Can't check service's health"
+        }), 503
 
 
 @app.errorhandler(429)
