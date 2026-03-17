@@ -14,6 +14,7 @@ COPY . .
 
 RUN useradd -m -u 1000 appuser && \
     mkdir -p data log/gunicorn log/celery .cache && \
+    chmod 0777 log && \
     chown -R appuser:appuser /lottahelper
 
 USER appuser
