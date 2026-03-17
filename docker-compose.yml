@@ -1,4 +1,21 @@
 services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/lottahelper
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    
   redis:
     image: redis:7-alpine
     volumes:
@@ -35,16 +52,17 @@ services:
      #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
      #   - DATABASE_URL           (if Celery tasks access the database)
      #   - OPENAI_API_KEY         (if tasks call OpenAI)
-    ports:
-      - "8000:8000"
     depends_on:
       redis:
         condition: service_healthy
     volumes:
       - ./:/lottahelper
     working_dir: /lottahelper
-    #command: python main.py
     command: gunicorn -c app/gunicorn/gunicorn.conf.py main:app
 
 volumes:
   redis_data:
+
+networks:
+  proxy-network:
+    driver: bridge
