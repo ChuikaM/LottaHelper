@@ -1,8 +1,10 @@
+import multiprocessing
 import os
 
 bind = "0.0.0.0:8000"
-workers = 1
-threads = 1
+workers = multiprocessing.cpu_count() * 2 + 1   # например, 9 для 4 ядер
+threads = 1                                      # если используем gthread, можно увеличить
+worker_class = "sync"                             # или "gthread"
 timeout = 180
 keepalive = 5
 max_requests = 1000
@@ -12,11 +14,9 @@ log_dir = '/lottahelper/log/gunicorn'
 os.makedirs(log_dir, exist_ok=True)
 errorlog = os.path.join(log_dir, 'error.log')
 accesslog = os.path.join(log_dir, 'access.log')
-
 loglevel = "info"
 capture_output = True
-preload_app = True
-worker_class = "gthread"
+# preload_app = False   # рассмотрите отключение, если есть проблемы с БД
 
 def on_starting(server):
     print("Gunicorn starting")

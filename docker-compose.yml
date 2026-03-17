@@ -40,7 +40,7 @@ services:
     build: .
     env_file:
       - .env
-    command: celery -A app._celery.celery_app:celery_app worker --loglevel=info --pool=solo --concurrency=1
+    command: celery -A app._celery.celery_app:celery_app worker --loglevel=info --concurrency=4
     depends_on:
       redis:
         condition: service_healthy
