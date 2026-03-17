@@ -7,19 +7,29 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./:/lottahelper
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
     networks:
       - proxy-network
+    depends_on:
+      api:
+        condition: service_healthy          # ждём, пока api станет здоровым
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 3s
       retries: 3
-    
+    restart: on-failure                     # перезапуск при временных сбоях
+
   redis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    networks:
+      - proxy-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -30,11 +40,6 @@ services:
     build: .
     env_file:
       - .env
-    # NOTE: The same .env file is used here. It should include, at minimum:
-     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
-     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
-     #   - DATABASE_URL           (if Celery tasks access the database)
-     #   - OPENAI_API_KEY         (if tasks call OpenAI)
     command: celery -A app._celery.celery_app:celery_app worker --loglevel=info --pool=solo --concurrency=1
     depends_on:
       redis:
@@ -42,23 +47,30 @@ services:
     volumes:
       - ./:/lottahelper
     working_dir: /lottahelper
+    networks:
+      - proxy-network
 
   api:
     build: .
     env_file:
       - .env
-    # NOTE: The same .env file is used here. It should include, at minimum:
-     #   - CELERY_BROKER_URL      (e.g., redis://redis:6379/0)
-     #   - CELERY_RESULT_BACKEND  (e.g., redis://redis:6379/1)
-     #   - DATABASE_URL           (if Celery tasks access the database)
-     #   - OPENAI_API_KEY         (if tasks call OpenAI)
     depends_on:
       redis:
         condition: service_healthy
     volumes:
       - ./:/lottahelper
+    expose:
+      - "8000"
     working_dir: /lottahelper
     command: gunicorn -c app/gunicorn/gunicorn.conf.py main:app
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s   # даём время на запуск gunicorn
 
 volumes:
   redis_data:
