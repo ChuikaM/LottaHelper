@@ -20,7 +20,7 @@ class RecaptchaChecker:
         if (not response) or ('success' not in response):
             json_response = {
                 "status": "failed",
-                "msg": "Cant't process captcha"
+                "msg": "Null response"
             }
             code = 500
             return False, json_response, code
@@ -28,7 +28,7 @@ class RecaptchaChecker:
         if not success:
             json_response = {
                 "status": "failed",
-                "msg": "Cant't process captcha"
+                "msg": "capthca doesn't pass"
             }
             code = 500
             return False, json_response, code

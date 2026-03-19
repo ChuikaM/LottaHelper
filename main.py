@@ -31,7 +31,7 @@ limiter = Limiter(
 redis_manager = RedisManager()
 postgre_manager = PostgreSQLManager(os.getenv('DATABASE_URL'))
 
-@app.route('/captcha', methods=['GET'])
+@app.route('/captcha', methods=['POST'])
 def check_captcha():
     client_token = request.data
     recaptcha_manager = RecaptchaChecker()

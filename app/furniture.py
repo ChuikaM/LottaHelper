@@ -15,7 +15,7 @@ from PIL import Image
 from sentence_transformers import SentenceTransformer, util
 from openai import OpenAI
 
-from app.db.manager.db_manager import DatabaseManager
+from app.db.manager.postgresql_manager import DatabaseManager
 
 
 CACHE_DIR = Path(".cache")

@@ -5,7 +5,7 @@ import json
 import sys
 from datetime import datetime
 
-from app.db.manager.db_manager import DatabaseManager
+from app.db.manager.postgresql_manager import DatabaseManager
 from app.db.item.furniture_item import FurnitureItem
 
 
