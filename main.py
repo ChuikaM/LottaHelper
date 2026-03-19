@@ -1,18 +1,22 @@
-from flask import Flask, request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
 from PIL import Image, UnidentifiedImageError
 import os
 import io
 import logging
+from celery.result import AsyncResult
 
-from app._celery.celery_app import celery_app
-from app._celery.tasks import process_furniture_recommendation
-from app.database import DatabaseManager
-from app.image_manager import ImageManager
+from flask import Flask, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
-from sqlalchemy import text
+from app._celery_.celery_app import celery_app
+from app._celery_.tasks import process_furniture_recommendation
+
+from app.checker.image_manager import ImageChecker
+from app.checker.recaptcha_manager import RecaptchaChecker
+
+from app.db.manager.postgresql_manager import PostgreSQLManager
+from app.db.manager.redis_manager import RedisManager
+from app.secrets import generate_csrf_token, generate_uuid_token
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -24,18 +28,46 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
+redis_manager = RedisManager()
+postgre_manager = PostgreSQLManager(os.getenv('DATABASE_URL'))
+
+@app.route('/captcha', methods=['GET'])
+def check_captcha():
+    client_token = request.data
+    recaptcha_manager = RecaptchaChecker()
+    token_allowed, json_response, status_code = recaptcha_manager.token_allowed(client_token=client_token)
+    if not token_allowed:
+        return jsonify({
+            json_response
+        }), status_code
+    
+    token = generate_uuid_token()
+    redis_manager.add_token(token=token)
+
+    return jsonify({
+        "status": "ok",
+        "msg": "Success",
+        "token": token
+    }), 200
 
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
-    """Submit image for async furniture recommendation processing"""
-    
-    image_manager = ImageManager()
-    if not image_manager.image_allowed(request.files):
-        return jsonify(image_manager.response()), image_manager.status_code()
+    response_token = request.files['token']
+    if not redis_manager.token_exists(token=response_token):
+        return jsonify({
+            "status": "failed", 
+            "msg": ""
+        }), 500
+    redis_manager.remove_token(token=response_token)
+
+    image_manager = ImageChecker()
+    image_allowed, json_response, code = image_manager.image_allowed(files=request.files)
+    if not image_allowed:
+        return jsonify(json_response), code
     
     try:
-        img_bytes = image_manager.file().read()
+        img_bytes = image_manager.file.read()
         try:
             with Image.open(io.BytesIO(img_bytes)) as img:
                 img.verify()
@@ -48,36 +80,35 @@ def retrieve_recommendations():
                 "msg": "Invalid or corrupted image file"
             }), 400
         
-        database_url = os.getenv('DATABASE_URL')
-        if not database_url:
-            logging.warning("DATABASE_URL not configured in environment")
-            return jsonify({
-                "status": "failed", 
-                "msg": "DATABASE_URL not configured in environment"
-            }), 500
-        
         task = process_furniture_recommendation.delay(
             image_bytes=img_bytes
         )
         
+        new_token = generate_csrf_token()
+        redis_manager.add_token(token=new_token)
         return jsonify({
             "status": "processing",
             "task_id": task.id,
-            "message": "Request queued. Poll /recommendations/<task_id> for results.",
-            "estimated_time_seconds": 30
+            "token": new_token
         }), 202
     except Exception as e:
         logging.exception(f"Error queuing task: {e}")
-        return jsonify({"status": "failed", "msg": "Failed to process image"}), 500
+        return jsonify({
+            "status": "failed",
+            "msg": "Failed to process image"
+        }), 500
 
 
 @app.route('/recommendations/<task_id>', methods=['GET'])
 def get_recommendation_status(task_id):
-    """Check task status and retrieve results"""
-    from celery.result import AsyncResult
+    token = request.data['token']
+    if not redis_manager.token_exists(token=token):
+        return jsonify({
+            "status": "failed",
+            "msg": "Wrong token"
+        }), 400
     
     task = AsyncResult(task_id, app=celery_app)
-    
     response_map = {
         'PENDING': (202, "Task is waiting to be processed"),
         'RECEIVED': (202, "Task received, waiting to start"),
@@ -127,26 +158,20 @@ def get_recommendation_status(task_id):
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint with database connectivity test"""
     try:
-        database_url = os.getenv('DATABASE_URL')
         db_status = "unknown"
-        
-        if database_url:
-            try:
-                db = DatabaseManager(database_url)
-                session = db.get_session()
-                session.execute(text("SELECT 1"))
-                db.close_session()
-                db_status = "connected"
-            except Exception as e:
-                db_status = f"error: {str(e)[:50]}"
+        try:
+            postgre_manager.check_health()
+            db_status = "connected"
+        except Exception as e:
+            logging.exception(f"redis" if os.getenv('CELERY_BROKER_URL') else "not-configured")
+            logging.exception(f"error: {str(e)[:50]}")
+            db_status = f"error: {str(e)[:50]}"
         
         return jsonify({
             "status": "ok",
             "service": "furniture-recommendation-api",
-            "database": db_status,
-            "queue": "redis" if os.getenv('CELERY_BROKER_URL') else "not-configured"
+            "database": db_status
         }), 200
         
     except Exception as e:
@@ -155,7 +180,7 @@ def health_check():
             "status": "degraded",
             "error": "Can't check service's health"
         }), 503
-    
+
 
 @app.errorhandler(429)
 def ratelimit_handler(e):

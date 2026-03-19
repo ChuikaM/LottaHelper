@@ -40,7 +40,7 @@ services:
     build: .
     env_file:
       - .env
-    command: celery -A app._celery.celery_app:celery_app worker --loglevel=info --concurrency=4
+    command: celery -A app._celery_.celery_app:celery_app worker --loglevel=info --concurrency=4
     depends_on:
       redis:
         condition: service_healthy
@@ -62,7 +62,7 @@ services:
     expose:
       - "8000"
     working_dir: /lottahelper
-    command: gunicorn -c app/gunicorn/gunicorn.conf.py main:app
+    command: gunicorn -c app/_gunicorn_/gunicorn.conf.py main:app
     networks:
       - proxy-network
     healthcheck:
@@ -70,7 +70,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s   # даём время на запуск gunicorn
+      start_period: 15s
 
 volumes:
   redis_data:

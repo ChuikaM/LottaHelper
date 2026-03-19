@@ -2,9 +2,9 @@ import multiprocessing
 import os
 
 bind = "0.0.0.0:8000"
-workers = multiprocessing.cpu_count() * 2 + 1   # например, 9 для 4 ядер
-threads = 1                                      # если используем gthread, можно увеличить
-worker_class = "sync"                             # или "gthread"
+workers = multiprocessing.cpu_count() * 2 + 1
+threads = 1
+worker_class = "sync"
 timeout = 180
 keepalive = 5
 max_requests = 1000

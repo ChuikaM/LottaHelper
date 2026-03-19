@@ -5,7 +5,8 @@ import json
 import sys
 from datetime import datetime
 
-from app.database import DatabaseManager, FurnitureItem
+from app.db.manager.db_manager import DatabaseManager
+from app.db.item.furniture_item import FurnitureItem
 
 
 def import_from_json(json_path: str, database_url: str = None):

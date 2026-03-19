@@ -23,4 +23,4 @@ WORKDIR /lottahelper
 
 EXPOSE 8000
 
-CMD ["gunicorn", "-c", "app/gunicorn/gunicorn.conf.py", "main:app"]
+CMD ["gunicorn", "-c", "app/_gunicorn_/gunicorn.conf.py", "main:app"]
