@@ -12,8 +12,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/logs:/var/log/nginx
-      - /etc/letsencrypt/live/api.iolottahelper.ru/fullchain.pem:/etc/letsencrypt/live/api.iolottahelper.ru/fullchain.pem:ro
-      - /etc/letsencrypt/live/api.iolottahelper.ru/privkey.pem:/etc/letsencrypt/live/api.iolottahelper.ru/privkey.pem:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - proxy-network
     depends_on:
