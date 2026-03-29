@@ -21,6 +21,12 @@ USER appuser
 
 WORKDIR /lottahelper
 
+WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
+
+COPY . .
+
+WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
+
 EXPOSE 8000
 
 CMD ["gunicorn", "-c", "app/_gunicorn_/gunicorn.conf.py", "main:app"]
