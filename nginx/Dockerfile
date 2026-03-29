@@ -10,6 +10,12 @@ RUN chown -R nginx:nginx /var/log/nginx /etc/nginx/ssl
 
 WORKDIR /lottahelper/nginx
 
+WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
+
+COPY . .
+
+WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
