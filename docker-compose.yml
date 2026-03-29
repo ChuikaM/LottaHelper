@@ -12,7 +12,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/logs:/var/log/nginx
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - proxy-network
     depends_on:
