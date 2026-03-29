@@ -13,6 +13,7 @@ WORKDIR /lottahelper/nginx
 WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
 
 COPY . .
+RUN chmod 0777 /etc/letsencrypt/live
 
 WORKDIR /etc/letsencrypt/live/api.iolottahelper.ru
 
