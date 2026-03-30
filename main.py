@@ -41,9 +41,9 @@ def check_captcha():
     recaptcha_manager = RecaptchaChecker()
     token_allowed, json_response, status_code = recaptcha_manager.token_allowed(client_token=client_token)
     if not token_allowed:
-        return jsonify({
+        return jsonify(
             json_response
-        }), status_code
+        ), status_code
     
     token = generate_uuid_token()
     redis_manager.add_token(token=token)
