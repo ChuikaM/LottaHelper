@@ -33,7 +33,7 @@ postgre_manager = PostgreSQLManager(os.getenv('DATABASE_URL'))
 
 @app.route('/captcha', methods=['POST'])
 def check_captcha():
-    client_token = request.data
+    client_token = request.data["captcha_token"]
     recaptcha_manager = RecaptchaChecker()
     token_allowed, json_response, status_code = recaptcha_manager.token_allowed(client_token=client_token)
     if not token_allowed:
