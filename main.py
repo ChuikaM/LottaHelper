@@ -37,7 +37,7 @@ def check_captcha():
     if not data or 'captcha_token' not in data:
         return jsonify({"error": "Missing captcha_token"}), 400
     
-    client_token = request.data["captcha_token"]
+    client_token = data["captcha_token"]
     recaptcha_manager = RecaptchaChecker()
     token_allowed, json_response, status_code = recaptcha_manager.token_allowed(client_token=client_token)
     if not token_allowed:
