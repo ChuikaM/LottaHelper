@@ -33,6 +33,10 @@ postgre_manager = PostgreSQLManager(os.getenv('DATABASE_URL'))
 
 @app.route('/captcha', methods=['POST'])
 def check_captcha():
+    data = request.get_json()
+    if not data or 'captcha_token' not in data:
+        return jsonify({"error": "Missing captcha_token"}), 400
+    
     client_token = request.data["captcha_token"]
     recaptcha_manager = RecaptchaChecker()
     token_allowed, json_response, status_code = recaptcha_manager.token_allowed(client_token=client_token)
