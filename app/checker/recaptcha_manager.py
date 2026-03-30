@@ -8,28 +8,20 @@ class RecaptchaChecker:
     def token_allowed(self, client_token):
         captcha_secret = os.getenv("RECAPTCHA_SECRET_KEY")
         if not captcha_secret:
-            json_response = {
-                "status": "failed",
-                "msg": "Cant't process captcha"
-            }
-            code = 500
-            return False, json_response, code
+            return False, {"status": "failed", "msg": "Can't process captcha"}, 500
+        
         url = 'https://www.google.com/recaptcha/api/siteverify'
         payload = {'secret': captcha_secret, 'response': client_token}
-        response = requests.post(url, json=payload)
-        if (not response) or ('success' not in response):
-            json_response = {
-                "status": "failed",
-                "msg": "Null response"
-            }
-            code = 500
-            return False, json_response, code
-        success = response['success']
-        if not success:
-            json_response = {
-                "status": "failed",
-                "msg": "capthca doesn't pass"
-            }
-            code = 500
-            return False, json_response, code
-        return True, None, None
+        try:
+            response = requests.post(url, payload)
+            if response.status_code != 200:
+                return False, {"status": "failed", "msg": "ReCaptcha service error"}, 500
+            
+            result = response.json()
+            if not result.get('success'):
+                return False, {"status": "failed", "msg": "Captcha doesn't pass"}, 400
+            
+            return True, None, None
+        
+        except Exception:
+            return False, {"status": "failed", "msg": "Internal error"}, 500
