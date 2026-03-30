@@ -192,12 +192,12 @@ def ratelimit_handler(e):
         "status": "failed",
         "msg": "Rate limit exceeded. Please try again later."
     }), 429
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({
-        "status": "failed",
-        "msg": "Internal server error"
-    }), 500
+# @app.errorhandler(500)
+# def internal_error(e):
+#     return jsonify({
+#         "status": "failed",
+#         "msg": "Internal server error"
+#     }), 500
 
 
 if __name__ == "__main__":
