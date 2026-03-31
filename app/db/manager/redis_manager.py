@@ -14,7 +14,7 @@ class RedisManager:
         )
     
     def add_token(self, token):
-        self.__redis.setex(f"token:{token}", 3600, "valid")
+        self.__redis.set("token", token)
         logging.info(token)
     def remove_token(self, token):
         self.__redis.delete(token)
