@@ -29,7 +29,7 @@ class ImageChecker:
             code = 400
             return False, json_response, code
         
-        file = files['file']
+        file = files.form.get['file']
         if not file or file.filename == '':
             logging.warning("No file selected")
             json_response = {

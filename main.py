@@ -57,7 +57,12 @@ def check_captcha():
 @app.route('/recommendations', methods=['POST'])
 @limiter.limit("10 per minute")
 def retrieve_recommendations():
-    response_token = request.files['token']
+    response_token = request.form.get('token')
+    if not response_token:
+        return jsonify({
+            "status": "failed",
+            "msg": "Token missing"
+        }), 400
     if not redis_manager.token_exists(token=response_token):
         return jsonify({
             "status": "failed", 
