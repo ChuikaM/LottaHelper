@@ -66,7 +66,7 @@ def retrieve_recommendations():
     if not redis_manager.token_exists(token=response_token):
         return jsonify({
             "status": "failed", 
-            "msg": ""
+            "msg": "token doesn't exists"
         }), 500
     redis_manager.remove_token(token=response_token)
 
