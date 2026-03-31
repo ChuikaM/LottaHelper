@@ -15,9 +15,11 @@ class RedisManager:
     
     def add_token(self, token):
         self.__redis.set("token", token)
-        logging.info(token)
+        logging.info("Added Token: " + token)
+        logging.info(self.__redis.exists(token))
     def remove_token(self, token):
         self.__redis.delete(token)
     def token_exists(self, token):
+        logging.info("Recieved Token: " + token)
         logging.info(self.__redis.exists(token))
         return self.__redis.exists(token)
