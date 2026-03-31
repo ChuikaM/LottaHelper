@@ -72,7 +72,7 @@ def retrieve_recommendations():
         }), 500
     redis_manager.remove_token(token=response_token)
 
-    response_file = request.form.get('file')
+    response_file = request.files.get('file')
     if not response_file:
         return jsonify({
             "status": "failed",
