@@ -118,7 +118,11 @@ def retrieve_recommendations():
 
 @app.route('/recommendations/<task_id>', methods=['GET'])
 def get_recommendation_status(task_id):
-    token = request.data['token']
+    data = request.get_json()
+    if not data or 'token' not in data:
+        return jsonify({"error": "Missing token"}), 400
+    
+    token = data['token']
     if not redis_manager.token_exists(token=token):
         return jsonify({
             "status": "failed",
