@@ -1,5 +1,4 @@
 import logging
-logging.basicConfig(filename='/var/log/image_manager.log', level=logging.INFO)
 
 class ImageChecker:
     def __init__(self):

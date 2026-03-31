@@ -6,8 +6,6 @@ import os
 import logging
 import math
 
-logging.basicConfig(filename='/var/log/tasks.log', level=logging.INFO)
-
 # from furniture import FurnitureFinder
 from .celery_app import celery_app
 

@@ -1,7 +1,6 @@
 import redis
 import os
 import logging
-logging.basicConfig(filename='/var/log/redis_manager.log', level=logging.INFO)
 
 class RedisManager:
     def __init__(self):
