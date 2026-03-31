@@ -19,17 +19,7 @@ class ImageChecker:
         file.seek(0)
         return True
 
-    def image_allowed(self, files):
-        if "file" not in files:
-            logging.warning("'file' field missing in request")
-            json_response = {
-                "status": "failed", 
-                "msg": "'file' field missing in request"
-            }
-            code = 400
-            return False, json_response, code
-        
-        file = files.form.get['file']
+    def image_allowed(self, file):
         if not file or file.filename == '':
             logging.warning("No file selected")
             json_response = {

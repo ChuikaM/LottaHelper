@@ -2,6 +2,7 @@ from PIL import Image, UnidentifiedImageError
 import os
 import io
 import logging
+logging.basicConfig(filename='/lottahelper/log/main.log', level=logging.INFO)
 
 from celery.result import AsyncResult
 
@@ -71,8 +72,14 @@ def retrieve_recommendations():
         }), 500
     redis_manager.remove_token(token=response_token)
 
+    response_file = request.form.get('file')
+    if not response_file:
+        return jsonify({
+            "status": "failed",
+            "msg": "File missing"
+        }), 400
     image_manager = ImageChecker()
-    image_allowed, json_response, code = image_manager.image_allowed(files=request.files)
+    image_allowed, json_response, code = image_manager.image_allowed(file=response_file)
     if not image_allowed:
         return jsonify(json_response), code
     
