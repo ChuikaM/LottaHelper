@@ -2,6 +2,8 @@ from PIL import Image, UnidentifiedImageError
 import os
 import io
 import logging
+logging.basicConfig(filename='/var/log/main.log', level=logging.INFO)
+
 from celery.result import AsyncResult
 
 from flask import Flask, request, jsonify

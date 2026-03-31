@@ -6,6 +6,7 @@ import base64
 import io
 import os
 import logging
+logging.basicConfig(filename='/var/log/furniture.log', level=logging.INFO)
 
 from pathlib import Path
 from typing import List, Dict, Tuple

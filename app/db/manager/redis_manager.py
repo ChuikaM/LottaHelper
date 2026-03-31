@@ -1,5 +1,7 @@
 import redis
 import os
+import logging
+logging.basicConfig(filename='/var/log/redis_manager.log', level=logging.INFO)
 
 class RedisManager:
     def __init__(self):
@@ -14,7 +16,9 @@ class RedisManager:
     
     def add_token(self, token):
         self.__redis.setex(f"token:{token}", 3600, "valid")
+        logging.info(token)
     def remove_token(self, token):
         self.__redis.delete(token)
     def token_exists(self, token):
+        logging.info(self.__redis.exists(token))
         return self.__redis.exists(token)
