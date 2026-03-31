@@ -1,5 +1,6 @@
 import requests
 import os
+import logging
 
 class RecaptchaChecker:
     def __init__(self):
@@ -23,5 +24,6 @@ class RecaptchaChecker:
             
             return True, None, None
         
-        except Exception:
+        except Exception as e:
+            logging.exception(f"Capthca error: {e}")
             return False, {"status": "failed", "msg": "Internal error"}, 500
