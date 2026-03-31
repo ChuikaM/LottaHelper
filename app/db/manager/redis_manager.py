@@ -13,13 +13,18 @@ class RedisManager:
             decode_responses=True
         )
     
-    def add_token(self, token):
-        self.__redis.set("token", token)
-        logging.info("Added Token: " + token)
-        logging.info(self.__redis.exists(token))
+    def add_token(self, token, ttl=3600):
+        key = f"token:{token}"
+        self.__redis.setex(key, ttl, "1")
+        logging.info(f"Added token: {token} under key {key}")
+        logging.info(f"Exists after add: {self.__redis.exists(key)}")
+    
     def remove_token(self, token):
-        self.__redis.delete(token)
+        key = f"token:{token}"
+        self.__redis.delete(key)
+    
     def token_exists(self, token):
-        logging.info("Recieved Token: " + token)
-        logging.info(self.__redis.exists(token))
-        return self.__redis.exists(token)
+        key = f"token:{token}"
+        exists = self.__redis.exists(key)
+        logging.info(f"Checking token: {token}, exists: {exists}")
+        return exists
