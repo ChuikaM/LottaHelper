@@ -6,7 +6,7 @@ import os
 import logging
 import math
 
-# from furniture import FurnitureFinder
+from furniture import FurnitureFinder
 from .celery_app import celery_app
 
 
@@ -38,11 +38,11 @@ def process_furniture_recommendation(
             'current': 50, 'total': 100, 'status': 'Initializing furniture finder...'
         })
         
-        # finder = FurnitureFinder(
-        #     database_url=db_url,
-        #     image=pil_image,
-        #     use_cache=True
-        # )
+        finder = FurnitureFinder(
+            database_url=db_url,
+            image=pil_image,
+            use_cache=True
+        )
         
         self.update_state(state='PROGRESS', meta={
             'current': 75, 'total': 100, 'status': 'Finding similar items...'
@@ -60,10 +60,10 @@ def process_furniture_recommendation(
         except ValueError:
             similarity_threshold = 0.6
         
-        # results = finder.find_similar(
-        #     similarity_threshold=similarity_threshold,
-        #     max_per_category=3
-        # )
+        results = finder.find_similar(
+            similarity_threshold=similarity_threshold,
+            max_per_category=3
+        )
         results = []
         
         self.update_state(state='PROGRESS', meta={
@@ -87,22 +87,22 @@ def process_furniture_recommendation(
             'current': 100, 'total': 100, 'status': 'Complete!'
         })
         
-        products = [
-            {
-                "product": "https://lottahome.ru/catalog/tv-stand/tproduct/1239121491-772776668722-heller-jk-t92",
-                "icon": "https://static.tildacdn.com/stor3935-6433-4030-b565-373563376562/14250456.png",
-                "match": 92,
-                "title": "Диван «Сканди»",
-                "cost": 45900
-            },
-            {
-                "product": "https://lottahome.ru/catalog/sofas/tproduct/787887595-685991130082-divan-lumiere",
-                "icon": "https://static.tildacdn.com/stor3230-3836-4030-b336-643134623035/63307980.jpg",
-                "match": 75,
-                "title": "Стул «Эко»",
-                "cost": 8900
-            }
-        ]
+        # products = [
+        #     {
+        #         "product": "https://lottahome.ru/catalog/tv-stand/tproduct/1239121491-772776668722-heller-jk-t92",
+        #         "icon": "https://static.tildacdn.com/stor3935-6433-4030-b565-373563376562/14250456.png",
+        #         "match": 92,
+        #         "title": "Диван «Сканди»",
+        #         "cost": 45900
+        #     },
+        #     {
+        #         "product": "https://lottahome.ru/catalog/sofas/tproduct/787887595-685991130082-divan-lumiere",
+        #         "icon": "https://static.tildacdn.com/stor3230-3836-4030-b336-643134623035/63307980.jpg",
+        #         "match": 75,
+        #         "title": "Стул «Эко»",
+        #         "cost": 8900
+        #     }
+        # ]
         return {
             "status": "success", 
             "products": products
@@ -113,6 +113,6 @@ def process_furniture_recommendation(
         logging.exception("Error while processing furniture recommendation task")
         return {"status": "failed", "error": str(e)}
     
-    # finally:
-    #     if finder:
-    #         finder.close()
+    finally:
+        if finder:
+            finder.close()

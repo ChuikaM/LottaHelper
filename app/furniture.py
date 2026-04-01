@@ -27,7 +27,11 @@ if torch.cuda.is_available():
 elif torch.backends.mps.is_available():
     DEVICE = "mps"
 
-OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_CLIENT = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
 VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
 SENTENCE_MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=DEVICE)
 
@@ -174,7 +178,7 @@ class FurnitureFinder:
             )
             
             response = OPENAI_CLIENT.chat.completions.create(
-                model=VISION_MODEL,
+                model="openrouter/free", 
                 messages=[
                     {
                         "role": "user",
