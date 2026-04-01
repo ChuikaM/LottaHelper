@@ -15,7 +15,7 @@ from PIL import Image
 from sentence_transformers import SentenceTransformer, util
 from openai import OpenAI
 
-from app.db.manager.postgresql_manager import DatabaseManager
+from app.db.manager.postgresql_manager import PostgreSQLManager
 
 
 CACHE_DIR = Path(".cache")
@@ -50,7 +50,7 @@ class FurnitureFinder:
         self.embeddings = None
         self.embedding_map: Dict[int, torch.Tensor] = {}
         
-        self.db = DatabaseManager(database_url)
+        self.db = PostgreSQLManager(database_url)
         
         CACHE_DIR.mkdir(exist_ok=True)
         self._load_furniture_data()
