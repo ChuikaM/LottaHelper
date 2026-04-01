@@ -6,7 +6,7 @@ import os
 import logging
 import math
 
-from furniture import FurnitureFinder
+from app.furniture import FurnitureFinder
 from .celery_app import celery_app
 
 
