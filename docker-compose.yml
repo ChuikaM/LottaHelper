@@ -49,6 +49,7 @@ services:
         condition: service_healthy
     volumes:
       - ./:/lottahelper
+      - cache_volume:/lottahelper/cache
     working_dir: /lottahelper
     networks:
       - proxy-network
@@ -62,6 +63,7 @@ services:
         condition: service_healthy
     volumes:
       - ./:/lottahelper
+      - cache_volume:/lottahelper/cache
     expose:
       - "8000"
     working_dir: /lottahelper
@@ -77,6 +79,7 @@ services:
 
 volumes:
   redis_data:
+  cache_volume:
 
 networks:
   proxy-network:

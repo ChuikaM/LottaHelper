@@ -13,10 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN useradd -m -u 1000 appuser && \
-    mkdir -p data log/gunicorn log/celery cache app && \
+    mkdir -p log/gunicorn log/celery cache && \
     chmod 0777 log && \
     chmod 0777 cache && \
-    chmod 0777 app && \
     chown -R appuser:appuser /lottahelper
 
 USER appuser
