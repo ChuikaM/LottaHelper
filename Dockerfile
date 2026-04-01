@@ -18,8 +18,6 @@ RUN useradd -m -u 1000 appuser && \
     chmod 0777 cache && \
     chown -R appuser:appuser /lottahelper
 
-RUN celery purge -f
-
 USER appuser
 
 WORKDIR /lottahelper
