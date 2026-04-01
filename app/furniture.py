@@ -188,7 +188,7 @@ class FurnitureFinder:
             )
             
             response = OPENAI_CLIENT.chat.completions.create(
-                model="openrouter/free", 
+                model="openai/gpt-4o", 
                 messages=[
                     {
                         "role": "user",
@@ -204,7 +204,7 @@ class FurnitureFinder:
                         ]
                     }
                 ],
-                max_tokens=1024,
+                max_tokens=2048,
                 temperature=0.1
             )
             
