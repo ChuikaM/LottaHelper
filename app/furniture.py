@@ -18,7 +18,7 @@ from openai import OpenAI
 from app.db.manager.postgresql_manager import PostgreSQLManager
 
 
-CACHE_DIR = Path("/tmp/lottahelper_cache")
+CACHE_DIR = Path("cache")
 EMBEDDINGS_CACHE = CACHE_DIR / "embeddings_cache_sql.json"
 
 DEVICE = "cpu"
