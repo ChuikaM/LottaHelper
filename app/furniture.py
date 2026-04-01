@@ -17,6 +17,15 @@ from openai import OpenAI
 
 from app.db.manager.postgresql_manager import PostgreSQLManager
 
+import socket
+import requests.packages.urllib3.util.connection as urllib3_cn
+
+# ПАТЧ: Принудительно используем IPv4, чтобы избежать ошибки "Network is unreachable"
+def allowed_gai_family():
+    return socket.AF_INET
+
+urllib3_cn.allowed_gai_family = allowed_gai_family
+
 
 CACHE_DIR = Path("cache")
 EMBEDDINGS_CACHE = CACHE_DIR / "embeddings_cache_sql.json"
