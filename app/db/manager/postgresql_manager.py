@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
+from app.db.item.furniture_item import FurnitureItem
 import os
 
 class PostgreSQLManager:
@@ -39,6 +40,19 @@ class PostgreSQLManager:
     
     def close_session(self):
         self.session_factory.remove()
+
+    def get_furniture_items(self, has_description: bool = True, limit: int = None):
+        """Fetch furniture items from database"""
+        session = self.get_session()
+        try:
+            query = session.query(FurnitureItem)
+            if has_description:
+                query = query.filter(FurnitureItem.description.isnot(None))
+            if limit:
+                query = query.limit(limit)
+            return query.all()
+        finally:
+            self.close_session()
         
     def check_health(self):
         session = self.get_session()
