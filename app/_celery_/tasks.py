@@ -109,7 +109,7 @@ def process_furniture_recommendation(
         return {
             "status": "success", 
             "products": products,
-            "image-url": url_to_interior
+            "imageUrl": url_to_interior
         }
         
     except Exception as e:
