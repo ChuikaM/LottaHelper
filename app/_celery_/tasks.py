@@ -7,6 +7,7 @@ import logging
 import math
 
 from app.furniture import FurnitureFinder
+from app.disk_manager import upload_image_to_disk
 from .celery_app import celery_app
 
 
@@ -15,9 +16,8 @@ def process_furniture_recommendation(
     self, 
     image_bytes: bytes
 ):
-    """Background task to process furniture recommendations"""
     finder = None
-    
+
     try:
         self.update_state(state='PROGRESS', meta={
             'current': 10, 'total': 100, 'status': 'Loading image...'
@@ -83,29 +83,33 @@ def process_furniture_recommendation(
             }
             products.append(product)
         
+        task_id = self.request.id
+        url_to_interior = upload_image_to_disk(image_bytes, task_id)
+
         self.update_state(state='PROGRESS', meta={
             'current': 100, 'total': 100, 'status': 'Complete!'
         })
         
-        # products = [
-        #     {
-        #         "product": "https://lottahome.ru/catalog/tv-stand/tproduct/1239121491-772776668722-heller-jk-t92",
-        #         "icon": "https://static.tildacdn.com/stor3935-6433-4030-b565-373563376562/14250456.png",
-        #         "match": 92,
-        #         "title": "Диван «Сканди»",
-        #         "cost": 45900
-        #     },
-        #     {
-        #         "product": "https://lottahome.ru/catalog/sofas/tproduct/787887595-685991130082-divan-lumiere",
-        #         "icon": "https://static.tildacdn.com/stor3230-3836-4030-b336-643134623035/63307980.jpg",
-        #         "match": 75,
-        #         "title": "Стул «Эко»",
-        #         "cost": 8900
-        #     }
-        # ]
+        products = [
+            {
+                "product": "https://lottahome.ru/catalog/tv-stand/tproduct/1239121491-772776668722-heller-jk-t92",
+                "icon": "https://static.tildacdn.com/stor3935-6433-4030-b565-373563376562/14250456.png",
+                "match": 92,
+                "title": "Диван «Сканди»",
+                "cost": 45900
+            },
+            {
+                "product": "https://lottahome.ru/catalog/sofas/tproduct/787887595-685991130082-divan-lumiere",
+                "icon": "https://static.tildacdn.com/stor3230-3836-4030-b336-643134623035/63307980.jpg",
+                "match": 75,
+                "title": "Стул «Эко»",
+                "cost": 8900
+            }
+        ]
         return {
             "status": "success", 
-            "products": products
+            "products": products,
+            "image-url": url_to_interior
         }
         
     except Exception as e:

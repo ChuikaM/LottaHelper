@@ -96,7 +96,7 @@ def retrieve_recommendations():
                 "status": "failed",
                 "msg": "Invalid or corrupted image file"
             }), 400
-        
+
         task = process_furniture_recommendation.delay(
             image_bytes=img_bytes
         )
@@ -155,12 +155,14 @@ def get_recommendation_status(task_id):
         }), 202
     elif task.state == 'SUCCESS':
         result = task.result
+        redis_manager.remove_token(token=token)
         if isinstance(result, dict) and result.get("status") == "success":
             return jsonify(result), 200
         else:
             error_msg = result.get("error", "Unknown error") if isinstance(result, dict) else str(result)
             return jsonify({"status": "failed", "msg": error_msg}), 500
     elif task.state == 'FAILURE':
+        redis_manager.remove_token(token=token)
         error_info = str(task.info) if task.info else "Unknown error"
         return jsonify({
             "status": "failed",
@@ -211,12 +213,6 @@ def ratelimit_handler(e):
         "status": "failed",
         "msg": "Rate limit exceeded. Please try again later."
     }), 429
-# @app.errorhandler(500)
-# def internal_error(e):
-#     return jsonify({
-#         "status": "failed",
-#         "msg": "Internal server error"
-#     }), 500
 
 
 if __name__ == "__main__":

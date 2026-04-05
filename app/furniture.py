@@ -21,7 +21,6 @@ import socket
 import urllib3.util.connection as urllib3_cn
 import time
 
-# ПАТЧ: Принудительно используем IPv4
 def allowed_gai_family():
     return socket.AF_INET
 
@@ -212,7 +211,6 @@ class FurnitureFinder:
             final_answer = response.choices[0].message.content.strip()
             furniture_list = self._parse_json_output(final_answer)
 
-            time.sleep(3)
             return furniture_list
 
         except Exception as e:
