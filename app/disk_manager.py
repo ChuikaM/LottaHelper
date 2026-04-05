@@ -6,11 +6,8 @@ import logging
 
 y = yadisk.YaDisk(token = os.getenv("YANDEX_DISK_TOKEN"))
 
-def upload_image_to_disk(base64_string : str, task_id):
-    if "," in base64_string:
-        base64_string = base64_string.split(",")[1]
-    image_data = base64.b64decode(base64_string)
-    file_object = io.BytesIO(image_data)
+def upload_image_to_disk(image_bytes : bytes, task_id):
+    file_object = io.BytesIO(image_bytes)
 
     if not y.check_token():
         logging.error("Error: token is not configured!")
