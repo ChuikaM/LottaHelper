@@ -32,7 +32,9 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 elif torch.backends.mps.is_available():
     DEVICE = "mps"
-
+else:
+    DEVICE = "cpu"
+    torch.set_num_threads(os.cpu_count())
 
 vision_model_id = os.getenv("VISION_MODEL", "vikhyatk/moondream2")
 VISION_MODEL = AutoModelForCausalLM.from_pretrained(
@@ -154,6 +156,7 @@ class FurnitureFinder:
             return []
             
         try:
+            self.image.thumbnail((600, 600)) 
             enc_image = VISION_MODEL.encode_image(self.image) 
             prompt = (
                 "If the image is not an interior design, return an empty string []. "
@@ -167,7 +170,7 @@ class FurnitureFinder:
                 enc_image, 
                 prompt, 
                 tokenizer, 
-                max_new_tokens=1024
+                max_new_tokens=256
             )
             
             furniture_list = self._parse_json_output(description)
