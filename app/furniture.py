@@ -178,39 +178,28 @@ class FurnitureFinder:
                 "Example: [\"Modern grey sofa with chrome legs\", \"Round wooden coffee table with glass top\"]"
             )
             
-            # response = OPENAI_CLIENT.chat.completions.create(
-            #     model="openai/gpt-4o", 
-            #     messages=[
-            #         {
-            #             "role": "user",
-            #             "content": [
-            #                 {"type": "text", "text": prompt},
-            #                 {
-            #                     "type": "image_url",
-            #                     "image_url": {
-            #                         "url": f"data:image/jpeg;base64,{image_base64}",
-            #                         "detail": "auto"
-            #                     }
-            #                 }
-            #             ]
-            #         }
-            #     ],
-            #     max_tokens=2048,
-            #     temperature=0.1
-            # )
+            response = OPENAI_CLIENT.chat.completions.create(
+                model="openai/gpt-4o", 
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}",
+                                    "detail": "auto"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=2048,
+                temperature=0.1
+            )
             
-            # final_answer = response.choices[0].message.content.strip()
-            items_list = [
-                "Pendant lights with white, cylindrical shades and hanging green plants",
-                "Wooden cutting board with rolling pin and baking stones",
-                "White kitchen island with drawers and open shelving",
-                "Wooden stool",
-                "Gray sofa with throw pillows",
-                "Wooden framed mirror with plants",
-                "Wooden shelving unit with plants",
-                "Wooden chair"
-            ]
-            final_answer = json.dumps(items_list)
+            final_answer = response.choices[0].message.content.strip()
             furniture_list = self._parse_json_output(final_answer)
 
             return furniture_list
