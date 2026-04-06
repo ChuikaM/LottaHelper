@@ -19,7 +19,6 @@ from app.db.manager.postgresql_manager import PostgreSQLManager
 
 import socket
 import urllib3.util.connection as urllib3_cn
-import time
 
 def allowed_gai_family():
     return socket.AF_INET
@@ -201,8 +200,7 @@ class FurnitureFinder:
             # )
             
             # final_answer = response.choices[0].message.content.strip()
-            final_answer = (
-                "["
+            items_list = [
                 "Pendant lights with white, cylindrical shades and hanging green plants",
                 "Wooden cutting board with rolling pin and baking stones",
                 "White kitchen island with drawers and open shelving",
@@ -211,8 +209,8 @@ class FurnitureFinder:
                 "Wooden framed mirror with plants",
                 "Wooden shelving unit with plants",
                 "Wooden chair"
-                "]"
-            )
+            ]
+            final_answer = json.dumps(items_list)
             furniture_list = self._parse_json_output(final_answer)
 
             return furniture_list
