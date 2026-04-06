@@ -1,7 +1,6 @@
 import json
 import torch
 import re
-import sys
 import base64
 import io
 import os
@@ -76,7 +75,7 @@ class FurnitureFinder:
                 
         except Exception as e:
             logging.exception(f"Database error: {e}")
-            sys.exit(1)
+            raise RuntimeError(f"Failed to load furniture data: {e}") from e
     
     def _load_or_compute_embeddings(self):
         """Load cached embeddings or compute new ones from database"""
