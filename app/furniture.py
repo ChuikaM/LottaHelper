@@ -1,9 +1,7 @@
 import json
 import torch
 import re
-import sys
-import base64
-import io
+
 import os
 import logging
 
@@ -12,8 +10,8 @@ from typing import List, Dict, Tuple
 from collections import defaultdict
 from PIL import Image
 
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from sentence_transformers import SentenceTransformer, util
-from openai import OpenAI
 
 from app.db.manager.postgresql_manager import PostgreSQLManager
 
@@ -22,7 +20,6 @@ import urllib3.util.connection as urllib3_cn
 
 def allowed_gai_family():
     return socket.AF_INET
-
 urllib3_cn.allowed_gai_family = allowed_gai_family
 
 
@@ -35,15 +32,20 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 elif torch.backends.mps.is_available():
     DEVICE = "mps"
+else:
+    DEVICE = "cpu"
+    torch.set_num_threads(os.cpu_count())
 
-OPENAI_CLIENT = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENAI_API_KEY")
+vision_model_id = os.getenv("VISION_MODEL", "vikhyatk/moondream2")
+VISION_MODEL = AutoModelForCausalLM.from_pretrained(
+    vision_model_id, 
+    trust_remote_code=True, 
+    dtype=torch.float16 if DEVICE != "cpu" else torch.float32, 
+    device_map={"": DEVICE}
 )
+tokenizer = AutoTokenizer.from_pretrained(vision_model_id)
 
-VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
 SENTENCE_MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=DEVICE)
-
 
 class FurnitureFinder:
     def __init__(
@@ -76,7 +78,6 @@ class FurnitureFinder:
                 
         except Exception as e:
             logging.exception(f"Database error: {e}")
-            sys.exit(1)
     
     def _load_or_compute_embeddings(self):
         """Load cached embeddings or compute new ones from database"""
@@ -149,70 +150,29 @@ class FurnitureFinder:
                 except Exception as e:
                     logging.exception(f"Failed to save cache: {e}")
     
-    def _pil_to_base64(self, image: Image, format: str = "JPEG", max_size: int = 1024) -> str:
-        """Convert PIL image to base64 string for OpenAI API"""
-        if max(image.size) > max_size:
-            image = image.copy()
-            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-        
-        if image.mode in ("RGBA", "P", "LA"):
-            image = image.convert("RGB")
-        
-        buffered = io.BytesIO()
-        image.save(buffered, format=format, quality=85, optimize=True)
-        return base64.b64encode(buffered.getvalue()).decode("utf-8")
-    
     def _get_furniture_description(self) -> List[str]:
         """Get furniture description from OpenAI GPT-4o vision API"""
         if not self.image:
             return []
             
         try:
-            image_base64 = self._pil_to_base64(self.image)
-            
+            enc_image = VISION_MODEL.encode_image(self.image) 
             prompt = (
-                "Identify all furniture items in this interior design image. "
-                "Provide a detailed description for each item. "
-                "Output the result strictly as a JSON array of strings. "
-                "Do not include any markdown formatting or extra text outside the JSON array.\n"
-                "Example: [\"Modern grey sofa with chrome legs\", \"Round wooden coffee table with glass top\"]"
+                "If the image is not an interior design, return an empty string []. "
+                "Identify unique furniture and decor items. "
+                "Combine identical or repeating elements (like wall slats) into a single description. "
+                "For each UNIQUE item, provide a detailed description (15-20 words) "
+                "covering material, color, and texture. Output ONLY a JSON array of strings. "
+                "Strictly avoid repeating the same item multiple times in the array."
+            )    
+            description = VISION_MODEL.answer_question(
+                enc_image, 
+                prompt, 
+                tokenizer, 
+                max_new_tokens=1024
             )
             
-            # response = OPENAI_CLIENT.chat.completions.create(
-            #     model="openai/gpt-4o", 
-            #     messages=[
-            #         {
-            #             "role": "user",
-            #             "content": [
-            #                 {"type": "text", "text": prompt},
-            #                 {
-            #                     "type": "image_url",
-            #                     "image_url": {
-            #                         "url": f"data:image/jpeg;base64,{image_base64}",
-            #                         "detail": "auto"
-            #                     }
-            #                 }
-            #             ]
-            #         }
-            #     ],
-            #     max_tokens=2048,
-            #     temperature=0.1
-            # )
-            
-            # final_answer = response.choices[0].message.content.strip()
-            items_list = [
-                "Pendant lights with white, cylindrical shades and hanging green plants",
-                "Wooden cutting board with rolling pin and baking stones",
-                "White kitchen island with drawers and open shelving",
-                "Wooden stool",
-                "Gray sofa with throw pillows",
-                "Wooden framed mirror with plants",
-                "Wooden shelving unit with plants",
-                "Wooden chair"
-            ]
-            final_answer = json.dumps(items_list)
-            furniture_list = self._parse_json_output(final_answer)
-
+            furniture_list = self._parse_json_output(description)
             return furniture_list
 
         except Exception as e:
