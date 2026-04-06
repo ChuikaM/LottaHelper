@@ -6,6 +6,7 @@ gunicorn==22.0.0
 
 transformers
 sentence-transformers==2.7.0
+timm
 torch
 torchvision
 torchaudio
