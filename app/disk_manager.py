@@ -19,7 +19,7 @@ def upload_image_to_disk(image_bytes : bytes, task_id):
 
 def delete_old_files_by_metadata():
     for item in y.listdir("/"):
-        if item.type == "image":
+        if item.type == "file":
             created = item.created
             age = datetime.now() - datetime.fromisoformat(created)
             if age > timedelta(seconds=1):
