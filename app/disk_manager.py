@@ -2,7 +2,7 @@ import yadisk
 import io
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 y = yadisk.YaDisk(token = os.getenv("YANDEX_DISK_TOKEN"))
 
@@ -18,26 +18,23 @@ def upload_image_to_disk(image_bytes : bytes, task_id):
     return y.get_download_link(path_on_disk)
 
 def delete_old_files_by_metadata():
-    for item in y.listdir("/"):
-        if item.type != "file":
-            continue
+    now_utc = datetime.now(timezone.utc)
+    try:
+        for item in y.listdir("/"):
+            if item.type != "file":
+                continue
 
-        time_value = item.created or item.modified
-        if not time_value:
-            logging.warning(f"No time attribute for {item.path}")
-            continue
+            dt = item.created or item.modified
+            if not dt:
+                continue
 
-        try:
-            if isinstance(time_value, str):
-                dt = datetime.fromisoformat(time_value.replace('Z', '+00:00'))
-            elif isinstance(time_value, datetime):
-                dt = time_value
-            else:
-                dt = datetime.fromtimestamp(time_value)
-        except Exception as e:
-            logging.error(f"Failed to parse time for {item.path}: {e}")
-            continue
+            if isinstance(dt, str):
+                dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
 
-        if datetime.now() - dt > timedelta(seconds=1):
-            y.remove(item.path)
-            logging.info(f"Deleted {item.path} (age: {datetime.now() - dt})")
+            if now_utc - dt > timedelta(seconds=1):
+                y.remove(item.path)
+                logging.info(f"Deleted {item.path}")
+    except Exception as e:
+        logging.error(f"Error in cleanup: {e}")
