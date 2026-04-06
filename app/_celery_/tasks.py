@@ -84,7 +84,7 @@ def process_furniture_recommendation(
         
         task_id = self.request.id
 
-        #delete_old_files_by_metadata()
+        delete_old_files_by_metadata()
         url_to_interior = upload_image_to_disk(image_bytes, task_id)
 
         self.update_state(state='PROGRESS', meta={
