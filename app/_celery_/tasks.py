@@ -90,22 +90,6 @@ def process_furniture_recommendation(
             'current': 100, 'total': 100, 'status': 'Complete!'
         })
         
-        products = [
-            {
-                "product": "https://lottahome.ru/catalog/tv-stand/tproduct/1239121491-772776668722-heller-jk-t92",
-                "icon": "https://static.tildacdn.com/stor3935-6433-4030-b565-373563376562/14250456.png",
-                "match": 92,
-                "title": "Диван «Сканди»",
-                "cost": 45900
-            },
-            {
-                "product": "https://lottahome.ru/catalog/sofas/tproduct/787887595-685991130082-divan-lumiere",
-                "icon": "https://static.tildacdn.com/stor3230-3836-4030-b336-643134623035/63307980.jpg",
-                "match": 75,
-                "title": "Стул «Эко»",
-                "cost": 8900
-            }
-        ]
         return {
             "status": "success", 
             "products": products,
