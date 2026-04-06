@@ -9,7 +9,6 @@ sentence-transformers==2.7.0
 torch
 torchvision
 torchaudio
-openai
 accelerate
 tqdm>=4.66.0
 numpy>=1.24.0
