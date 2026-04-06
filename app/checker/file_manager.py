@@ -10,6 +10,7 @@ class FileChecker:
         self.__ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
         self.__ALLOWED_MIMETYPES = {'image/png', 'image/jpg', 'image/jpeg', 'application/pdf'}
         self.__MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+        self.__MAX_PDF_SIZE = 10 * 1024 * 1024  # 10MB
 
     def __allowed_file(self, filename):
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in self.__ALLOWED_EXTENSIONS
