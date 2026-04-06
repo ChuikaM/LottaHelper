@@ -64,7 +64,6 @@ def process_furniture_recommendation(
             similarity_threshold=similarity_threshold,
             max_per_category=3
         )
-        results = []
         
         self.update_state(state='PROGRESS', meta={
             'current': 90, 'total': 100, 'status': 'Formatting results...'
