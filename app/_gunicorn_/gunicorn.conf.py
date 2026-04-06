@@ -16,7 +16,6 @@ errorlog = os.path.join(log_dir, 'error.log')
 accesslog = os.path.join(log_dir, 'access.log')
 loglevel = "info"
 capture_output = True
-# preload_app = False   # рассмотрите отключение, если есть проблемы с БД
 
 def on_starting(server):
     print("Gunicorn starting")

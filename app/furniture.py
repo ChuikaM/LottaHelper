@@ -170,6 +170,7 @@ class FurnitureFinder:
             image_base64 = self._pil_to_base64(self.image)
             
             prompt = (
+                "If the image is not an interior design, return an empty string []. "
                 "Identify all furniture items in this interior design image. "
                 "Provide a detailed description for each item. "
                 "Output the result strictly as a JSON array of strings. "

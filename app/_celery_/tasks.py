@@ -7,7 +7,7 @@ import logging
 import math
 
 from app.furniture import FurnitureFinder
-from app.disk_manager import upload_image_to_disk
+from app.disk_manager import upload_image_to_disk, delete_old_files_by_metadata
 from .celery_app import celery_app
 
 
@@ -83,6 +83,8 @@ def process_furniture_recommendation(
             products.append(product)
         
         task_id = self.request.id
+        
+        delete_old_files_by_metadata()
         url_to_interior = upload_image_to_disk(image_bytes, task_id)
 
         self.update_state(state='PROGRESS', meta={
