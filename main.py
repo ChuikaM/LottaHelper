@@ -13,7 +13,7 @@ from flask_limiter.util import get_remote_address
 from app._celery_.celery_app import celery_app
 from app._celery_.tasks import process_furniture_recommendation
 
-from app.checker.image_manager import ImageChecker
+from app.checker.file_manager import FileChecker
 from app.checker.recaptcha_manager import RecaptchaChecker
 
 from app.db.manager.postgresql_manager import PostgreSQLManager
@@ -78,27 +78,15 @@ def retrieve_recommendations():
             "status": "failed",
             "msg": "File missing"
         }), 400
-    image_manager = ImageChecker()
-    image_allowed, json_response, code = image_manager.image_allowed(file=response_file)
+    file_manager = FileChecker()
+    image_allowed, json_response, code = file_manager.image_allowed(file=response_file)
     if not image_allowed:
         return jsonify(json_response), code
     
     try:
-        img_bytes = image_manager.file.read()
-        try:
-            with Image.open(io.BytesIO(img_bytes)) as img:
-                img.verify()
-            with Image.open(io.BytesIO(img_bytes)) as img:
-                img.load()
-        except (UnidentifiedImageError, OSError, ValueError) as e:
-            logging.warning(f"Invalid image data provided: {e}")
-            return jsonify({
-                "status": "failed",
-                "msg": "Invalid or corrupted image file"
-            }), 400
-
         task = process_furniture_recommendation.delay(
-            image_bytes=img_bytes
+            file_bytes=file_manager.file,
+            file_type=file_manager.file_type
         )
         
         new_token = generate_csrf_token()

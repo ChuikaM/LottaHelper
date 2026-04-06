@@ -6,16 +6,25 @@ from datetime import datetime, timedelta, timezone
 
 y = yadisk.YaDisk(token = os.getenv("YANDEX_DISK_TOKEN"))
 
-def upload_image_to_disk(image_bytes : bytes, task_id):
-    file_object = io.BytesIO(image_bytes)
-
+def upload_file_to_disk(file_bytes : bytes, file_type, task_id):
     if not y.check_token():
         logging.error("Error: token is not configured!")
         return None
     
-    path_on_disk = f"/{task_id}.jpg"
-    y.upload(file_object, path_on_disk)
-    return y.get_download_link(path_on_disk)
+    if file_type == 'image':
+        ext = '.jpg'
+    else:
+        ext = '.pdf'
+    
+    path_on_disk = f"/{task_id}{ext}"
+    file_object = io.BytesIO(file_bytes)
+    try:
+        y.upload(file_object, path_on_disk)
+        download_link = y.get_download_link(path_on_disk)
+        return download_link
+    except Exception as e:
+        logging.exception(f"Failed to upload to Yandex Disk: {e}")
+        return None
 
 def delete_old_files_by_metadata():
     now_utc = datetime.now(timezone.utc)
