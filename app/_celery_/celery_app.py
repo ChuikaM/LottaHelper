@@ -8,8 +8,9 @@ celery_app = Celery(
     include=['app._celery_.tasks']
 )
 celery_app.conf.update(
-    worker_pool='solo',
-    worker_concurrency=1,
+    worker_pool='prefork',
+    # worker_pool='solo',
+    # worker_concurrency=1,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     task_time_limit=300,
