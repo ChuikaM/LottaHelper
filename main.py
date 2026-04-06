@@ -79,8 +79,8 @@ def retrieve_recommendations():
             "msg": "File missing"
         }), 400
     file_manager = FileChecker()
-    image_allowed, json_response, code = file_manager.image_allowed(file=response_file)
-    if not image_allowed:
+    file_allowed, json_response, code = file_manager.file_allowed(file=response_file)
+    if not file_allowed:
         return jsonify(json_response), code
     
     try:
