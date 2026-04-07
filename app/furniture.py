@@ -36,7 +36,6 @@ elif torch.backends.mps.is_available():
     DEVICE = "mps"
 
 OPENAI_CLIENT = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
