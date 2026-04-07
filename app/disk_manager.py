@@ -42,7 +42,7 @@ def delete_old_files_by_metadata():
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
 
-            if now_utc - dt > timedelta(hours=24):
+            if now_utc - dt > timedelta(days=183):
                 y.remove(item.path)
                 logging.info(f"Deleted {item.path}")
     except Exception as e:
