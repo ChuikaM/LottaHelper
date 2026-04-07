@@ -163,8 +163,6 @@ class FurnitureFinder:
     
     def _get_furniture_description(self) -> List[str]:
         """Get furniture description from OpenAI GPT-4o vision API"""
-        if not self.image:
-            return []
             
         try:
             image_base64 = self._pil_to_base64(self.image)
