@@ -177,7 +177,7 @@ class FurnitureFinder:
             )
             
             response = OPENAI_CLIENT.chat.completions.create(
-                model="openai/gpt-4o", 
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "user",
