@@ -16,7 +16,7 @@ def upload_file_to_disk(file_bytes : bytes, file_type, task_id):
     else:
         ext = '.pdf'
     
-    path_on_disk = f"/{task_id}{ext}"
+    path_on_disk = f"/lottahelper/{task_id}{ext}"
     file_object = io.BytesIO(file_bytes)
     try:
         y.upload(file_object, path_on_disk)
@@ -29,7 +29,7 @@ def upload_file_to_disk(file_bytes : bytes, file_type, task_id):
 def delete_old_files_by_metadata():
     now_utc = datetime.now(timezone.utc)
     try:
-        for item in y.listdir("/"):
+        for item in y.listdir("/lottahelper"):
             if item.type != "file":
                 continue
 
