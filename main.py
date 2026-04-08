@@ -1,6 +1,4 @@
-from PIL import Image, UnidentifiedImageError
 import os
-import io
 import logging
 logging.basicConfig(filename='/lottahelper/log/main.log', level=logging.INFO)
 
@@ -37,7 +35,10 @@ postgre_manager = PostgreSQLManager(os.getenv('DATABASE_URL'))
 def check_captcha():
     data = request.get_json()
     if not data or 'captcha_token' not in data:
-        return jsonify({"error": "Missing captcha_token"}), 400
+        return jsonify({
+            "status": "failed",
+            "msg": "Missing captcha_token",
+        }), 400
     
     client_token = data["captcha_token"]
     recaptcha_manager = RecaptchaChecker()
@@ -57,7 +58,7 @@ def check_captcha():
     }), 200
 
 @app.route('/recommendations', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute")
 def retrieve_recommendations():
     response_token = request.form.get('token')
     if not response_token:
@@ -170,6 +171,7 @@ def get_recommendation_status(task_id):
 
 
 @app.route('/health', methods=['GET'])
+@limiter.exempt
 def health_check():
     try:
         db_status = "unknown"
@@ -183,8 +185,7 @@ def health_check():
         
         return jsonify({
             "status": "ok",
-            "service": "furniture-recommendation-api",
-            "database": db_status
+            "msg": db_status
         }), 200
         
     except Exception as e:
@@ -193,7 +194,6 @@ def health_check():
             "status": "degraded",
             "error": "Can't check service's health"
         }), 503
-
 
 
 @app.errorhandler(429)

@@ -64,7 +64,6 @@ class FurnitureFinder:
         self._load_or_compute_embeddings()
     
     def _load_furniture_data(self):
-        """Load furniture items from SQL database"""
         try:
             items = self.db.get_furniture_items(has_description=True)
             self.furniture_items = [item.to_dict() for item in items]
@@ -77,7 +76,6 @@ class FurnitureFinder:
             raise RuntimeError(f"Failed to load furniture data: {e}") from e
     
     def _load_or_compute_embeddings(self):
-        """Load cached embeddings or compute new ones from database"""
         cache_valid = False
         
         if self.use_cache and EMBEDDINGS_CACHE.exists():
@@ -148,7 +146,6 @@ class FurnitureFinder:
                     logging.exception(f"Failed to save cache: {e}")
     
     def _pil_to_base64(self, image: Image, format: str = "JPEG", max_size: int = 1024) -> str:
-        """Convert PIL image to base64 string for OpenAI API"""
         if max(image.size) > max_size:
             image = image.copy()
             image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
@@ -161,22 +158,23 @@ class FurnitureFinder:
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     
     def _get_furniture_description(self) -> List[str]:
-        """Get furniture description from OpenAI GPT-4o vision API"""
+        if not self.image:
+            return []
             
         try:
             image_base64 = self._pil_to_base64(self.image)
-            
             prompt = (
-                "If the image is not an interior design, return an empty string []. "
-                "Identify all furniture items in this interior design image. "
-                "Provide a detailed description for each item. "
-                "Output the result strictly as a JSON array of strings. "
+                "If the image is not an interior design, return an empty string []."
+                "Identify all furniture items in this interior design image."
+                "Provide a detailed description for each item."
+                "Output the result strictly as a JSON array of strings."
                 "Do not include any markdown formatting or extra text outside the JSON array.\n"
                 "Example: [\"Modern grey sofa with chrome legs\", \"Round wooden coffee table with glass top\"]"
-            )
-            
+                "If only one furniture item is present in the image, the output must be a JSON array containing exactly one description string."
+                "Do not add extra items, generic labels, or empty elements."
+            )     
             response = OPENAI_CLIENT.chat.completions.create(
-                model="gpt-4o",
+                model=VISION_MODEL, 
                 messages=[
                     {
                         "role": "user",
@@ -198,7 +196,6 @@ class FurnitureFinder:
             
             final_answer = response.choices[0].message.content.strip()
             furniture_list = self._parse_json_output(final_answer)
-
             return furniture_list
 
         except Exception as e:
@@ -206,7 +203,6 @@ class FurnitureFinder:
             return []
 
     def _parse_json_output(self, text: str) -> List[str]:
-        """Helper to clean and parse JSON from model output"""
         try:
             clean_text = re.sub(r'```json\s*', '', text)
             clean_text = re.sub(r'```\s*', '', clean_text)
@@ -245,9 +241,6 @@ class FurnitureFinder:
         similarity_threshold: float = 0.0, 
         max_per_category: int = 3
     ) -> List[Tuple[Dict, float]]:
-        """
-        Find similar furniture items using cosine similarity on embeddings.
-        """
         if not self.furniture_items or self.embeddings is None:
             return []
 
@@ -298,6 +291,5 @@ class FurnitureFinder:
         return final_results
     
     def close(self):
-        """Cleanup resources"""
         if hasattr(self, 'db'):
             self.db.close_session()

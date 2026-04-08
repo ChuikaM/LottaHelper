@@ -11,7 +11,6 @@ from app.disk_manager import upload_file_to_disk, delete_old_files_by_metadata
 from .celery_app import celery_app
 import fitz 
 
-
 @celery_app.task(bind=True, name='process_furniture_recommendation')
 def process_furniture_recommendation(
     self, 
