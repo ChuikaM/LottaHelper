@@ -3,10 +3,10 @@
 
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
 
-from database import DatabaseManager, FurnitureItem
+from app.db.manager.postgresql_manager import DatabaseManager
+from app.db.item.furniture_item import FurnitureItem
 
 
 def import_from_json(json_path: str, database_url: str = None):

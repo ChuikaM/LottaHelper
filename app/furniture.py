@@ -1,22 +1,46 @@
 import json
 import torch
 import re
-import sys
 import base64
 import io
-from pathlib import Path
-from typing import List, Dict, Tuple, Optional
-from collections import defaultdict
 import os
+import logging
 
+from pathlib import Path
+from typing import List, Dict, Tuple
+from collections import defaultdict
 from PIL import Image
+
 from sentence_transformers import SentenceTransformer, util
-from openai import OpenAI  # Requires: pip install openai
+from openai import OpenAI
 
-from database import DatabaseManager, FurnitureItem
+from app.db.manager.postgresql_manager import PostgreSQLManager
 
-CACHE_DIR = Path(".cache")
+import socket
+import urllib3.util.connection as urllib3_cn
+
+def allowed_gai_family():
+    return socket.AF_INET
+
+urllib3_cn.allowed_gai_family = allowed_gai_family
+
+
+
+CACHE_DIR = Path("cache")
 EMBEDDINGS_CACHE = CACHE_DIR / "embeddings_cache_sql.json"
+
+DEVICE = "cpu"
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif torch.backends.mps.is_available():
+    DEVICE = "mps"
+
+OPENAI_CLIENT = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4o")
+SENTENCE_MODEL = SentenceTransformer("all-MiniLM-L6-v2", device=DEVICE)
 
 
 class FurnitureFinder:
@@ -31,47 +55,27 @@ class FurnitureFinder:
         self.image = image
         self.furniture_items: List[Dict] = []
         self.embeddings = None
-        self.embedding_map: Dict[int, torch.Tensor] = {}  # id -> embedding
+        self.embedding_map: Dict[int, torch.Tensor] = {}
         
-        # Device configuration for sentence transformer only
-        self.device = "cpu"
-        if torch.cuda.is_available():
-            self.device = "cuda"
-        elif torch.backends.mps.is_available():
-            self.device = "mps"
-
-        # Initialize OpenAI client for vision API
-        self.openai_client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")  # Must be set in environment
-        )
-        self.vision_model =  os.getenv("OPENAI_VISION_MODEL", "gpt-4o")   # Change if using a different OpenAI vision model
+        self.db = PostgreSQLManager(database_url)
         
-        # Initialize database
-        self.db = DatabaseManager(database_url)
-        
-        # Load sentence transformer for embeddings on the selected device
-        self.model = SentenceTransformer("all-MiniLM-L6-v2", device=self.device)
-        
-        # Load data and compute embeddings
         CACHE_DIR.mkdir(exist_ok=True)
         self._load_furniture_data()
         self._load_or_compute_embeddings()
     
     def _load_furniture_data(self):
-        """Load furniture items from SQL database"""
         try:
             items = self.db.get_furniture_items(has_description=True)
             self.furniture_items = [item.to_dict() for item in items]
             
             if not self.furniture_items:
-                print("⚠️  No furniture items found in database")
+                logging.warning("No furniture items found in database")
                 
         except Exception as e:
-            print(f"❌ Database error: {e}")
-            sys.exit(1)
+            logging.exception(f"Database error: {e}")
+            raise RuntimeError(f"Failed to load furniture data: {e}") from e
     
     def _load_or_compute_embeddings(self):
-        """Load cached embeddings or compute new ones from database"""
         cache_valid = False
         
         if self.use_cache and EMBEDDINGS_CACHE.exists():
@@ -79,20 +83,17 @@ class FurnitureFinder:
                 with open(EMBEDDINGS_CACHE, 'r', encoding='utf-8') as f:
                     cache_data = json.load(f)
                 
-                # Validate cache matches current data
                 if len(cache_data) == len(self.furniture_items):
                     cache_ids = {item['id'] for item in cache_data}
                     current_ids = {item['id'] for item in self.furniture_items}
                     
                     if cache_ids == current_ids and all('embedding' in item for item in cache_data):
-                        # Build a mapping from id to raw embedding from the cache
                         id_to_embedding = {
                             item['id']: item['embedding'] for item in cache_data
                         }
                         ordered_tensors: List[torch.Tensor] = []
                         self.embedding_map.clear()
                         cache_valid = True
-                        # Rebuild embeddings tensor in the same order as self.furniture_items
                         for furniture_item in self.furniture_items:
                             fid = furniture_item['id']
                             embedding_data = id_to_embedding.get(fid)
@@ -102,34 +103,32 @@ class FurnitureFinder:
                             tensor = torch.tensor(
                                 embedding_data,
                                 dtype=torch.float32,
-                                device=self.device,
+                                device=DEVICE,
                             )
                             ordered_tensors.append(tensor)
                             self.embedding_map[fid] = tensor
                         if cache_valid and ordered_tensors:
                             self.embeddings = torch.stack(ordered_tensors)
-                            print(f"✅ Loaded {len(cache_data)} embeddings from cache")
+                            logging.info(f"Loaded {len(cache_data)} embeddings from cache")
                         
             except Exception as e:
-                print(f"⚠️  Cache load error ({type(e).__name__}): {e} - recomputing...")
+                logging.exception(f"Cache load error ({type(e).__name__}): {e} - recomputing...")
         
         if not cache_valid:
-            print(f"🔄 Computing embeddings for {len(self.furniture_items)} items...")
+            logging.info(f"Computing embeddings for {len(self.furniture_items)} items...")
             descriptions = [item['description'] for item in self.furniture_items]
             
-            embeddings = self.model.encode(
+            embeddings = SENTENCE_MODEL.encode(
                 descriptions,
                 convert_to_tensor=True,
                 show_progress_bar=True,
                 normalize_embeddings=True
             )
-            self.embeddings = embeddings.to(self.device)
+            self.embeddings = embeddings.to(DEVICE)
             
-            # Build lookup map
             for item, emb in zip(self.furniture_items, embeddings):
-                self.embedding_map[item['id']] = emb.to(self.device)
+                self.embedding_map[item['id']] = emb.to(DEVICE)
             
-            # Save to cache
             if self.use_cache:
                 try:
                     cache_data = [
@@ -142,18 +141,15 @@ class FurnitureFinder:
                     ]
                     with open(EMBEDDINGS_CACHE, 'w', encoding='utf-8') as f:
                         json.dump(cache_data, f, ensure_ascii=False, separators=(',', ':'))
-                    print(f"💾 Saved embeddings cache to {EMBEDDINGS_CACHE}")
+                    logging.info(f"Saved embeddings cache to {EMBEDDINGS_CACHE}")
                 except Exception as e:
-                    print(f"⚠️  Failed to save cache: {e}")
+                    logging.exception(f"Failed to save cache: {e}")
     
     def _pil_to_base64(self, image: Image, format: str = "JPEG", max_size: int = 1024) -> str:
-        """Convert PIL image to base64 string for OpenAI API"""
-        # Resize if too large to reduce token cost and API payload
         if max(image.size) > max_size:
             image = image.copy()
             image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
-        # Convert to RGB if needed (for JPEG compatibility)
         if image.mode in ("RGBA", "P", "LA"):
             image = image.convert("RGB")
         
@@ -162,24 +158,23 @@ class FurnitureFinder:
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     
     def _get_furniture_description(self) -> List[str]:
-        """Get furniture description from OpenAI GPT-4o vision API"""
         if not self.image:
             return []
             
         try:
-            # Convert image to base64
             image_base64 = self._pil_to_base64(self.image)
-            
             prompt = (
-                "Identify all furniture items in this interior design image. "
-                "Provide a detailed description for each item. "
-                "Output the result strictly as a JSON array of strings. "
+                "If the image is not an interior design, return an empty string []."
+                "Identify all furniture items in this interior design image."
+                "Provide a detailed description for each item."
+                "Output the result strictly as a JSON array of strings."
                 "Do not include any markdown formatting or extra text outside the JSON array.\n"
                 "Example: [\"Modern grey sofa with chrome legs\", \"Round wooden coffee table with glass top\"]"
-            )
-            
-            response = self.openai_client.chat.completions.create(
-                model=self.vision_model,
+                "If only one furniture item is present in the image, the output must be a JSON array containing exactly one description string."
+                "Do not add extra items, generic labels, or empty elements."
+            )     
+            response = OPENAI_CLIENT.chat.completions.create(
+                model=VISION_MODEL, 
                 messages=[
                     {
                         "role": "user",
@@ -189,13 +184,13 @@ class FurnitureFinder:
                                 "type": "image_url",
                                 "image_url": {
                                     "url": f"data:image/jpeg;base64,{image_base64}",
-                                    "detail": "auto"  # "low", "high", or "auto"
+                                    "detail": "auto"
                                 }
                             }
                         ]
                     }
                 ],
-                max_tokens=1024,
+                max_tokens=2048,
                 temperature=0.1
             )
             
@@ -204,11 +199,10 @@ class FurnitureFinder:
             return furniture_list
 
         except Exception as e:
-            print(f"[_get_furniture_description] OpenAI API Error: {e}")
+            logging.exception(f"OpenAI API Error: {e}")
             return []
 
     def _parse_json_output(self, text: str) -> List[str]:
-        """Helper to clean and parse JSON from model output"""
         try:
             clean_text = re.sub(r'```json\s*', '', text)
             clean_text = re.sub(r'```\s*', '', clean_text)
@@ -227,7 +221,6 @@ class FurnitureFinder:
                 return [clean_text] if clean_text else []
                 
         except json.JSONDecodeError:
-            # Fallback parsing
             lines = [line.strip() for line in text.split('\n') if line.strip()]
             ignore_words = ['here', 'list', 'items', 'output']
             filtered_lines = []
@@ -240,7 +233,7 @@ class FurnitureFinder:
             return filtered_lines if filtered_lines else [text]
         
         except Exception as e:
-            print(f"[Parse Error] {e}")
+            logging.exception(f"Parse Error: {e}")
             return [text] if text else []
     
     def find_similar(
@@ -248,9 +241,6 @@ class FurnitureFinder:
         similarity_threshold: float = 0.0, 
         max_per_category: int = 3
     ) -> List[Tuple[Dict, float]]:
-        """
-        Find similar furniture items using cosine similarity on embeddings.
-        """
         if not self.furniture_items or self.embeddings is None:
             return []
 
@@ -263,11 +253,11 @@ class FurnitureFinder:
         
         for query in descriptions:
             try:
-                query_embedding = self.model.encode(
+                query_embedding = SENTENCE_MODEL.encode(
                     query, 
                     convert_to_tensor=True,
                     normalize_embeddings=True
-                ).to(self.device)
+                ).to(DEVICE)
                 
                 cos_scores = util.cos_sim(query_embedding, self.embeddings)[0]
                 
@@ -282,13 +272,11 @@ class FurnitureFinder:
                             results.append((item, score_float))
             
             except Exception as e:
-                print(f"Error processing query '{query}': {e}")
+                logging.exception(f"Error processing query '{query}': {e}")
                 continue
         
-        # Sort by similarity score descending
         results.sort(key=lambda x: x[1], reverse=True)
         
-        # Group by category and limit per category
         category_results = defaultdict(list)
         for item, score in results:
             category = item.get('category') or 'uncategorized'
@@ -302,29 +290,6 @@ class FurnitureFinder:
         final_results.sort(key=lambda x: x[1], reverse=True)
         return final_results
     
-    def search_by_text(self, query: str, top_k: int = 10) -> List[Tuple[Dict, float]]:
-        """Direct text search using embeddings (without image)"""
-        if not self.furniture_items or self.embeddings is None:
-            return []
-        
-        query_embedding = self.model.encode(
-            query,
-            convert_to_tensor=True,
-            normalize_embeddings=True
-        ).to(self.device)
-        
-        cos_scores = util.cos_sim(query_embedding, self.embeddings)[0]
-        top_results = torch.topk(cos_scores, k=min(top_k, len(cos_scores)))
-        
-        results = []
-        for score, idx in zip(top_results.values, top_results.indices):
-            item = self.furniture_items[idx]
-            results.append((item, float(score)))
-        
-        return results
-    
     def close(self):
-        """Cleanup resources"""
         if hasattr(self, 'db'):
             self.db.close_session()
-        # OpenAI client doesn't require explicit cleanup

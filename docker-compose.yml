@@ -1,46 +1,86 @@
 services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+      - ./nginx/ssl/fullchain.pem:/etc/ssl/nginx/fullchain.pem:ro
+      - ./nginx/ssl/privkey.pem:/etc/ssl/nginx/privkey.pem:ro
+    networks:
+      - proxy-network
+    depends_on:
+      api:
+        condition: service_healthy 
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: on-failure
+
   redis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    networks:
+      - proxy-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  api:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=sqlite:///./furniture_catalog.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - FLASK_LIMITER_STORAGE_URL=redis://redis:6379/1
-    depends_on:
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./:/app/data
-      - ./.cache:/app/.cache
-    command: gunicorn -c gunicorn.conf.py main:app
-
   celery:
     build: .
-    command: celery -A celery_worker worker --loglevel=info --pool=solo --concurrency=1
-    environment:
-      - DATABASE_URL=sqlite:///./furniture_catalog.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - .env
+    command: celery -A app._celery_.celery_app:celery_app worker --loglevel=info --concurrency=4
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      - ./:/app/data
-      - ./.cache:/app/.cache
+      - ./:/lottahelper
+      - cache_volume:/lottahelper/cache
+    working_dir: /lottahelper
+    networks:
+      - proxy-network
+
+  api:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/lottahelper
+      - cache_volume:/lottahelper/cache
+    expose:
+      - "8000"
+    working_dir: /lottahelper
+    command: gunicorn -c app/_gunicorn_/gunicorn.conf.py main:app
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 volumes:
   redis_data:
+  cache_volume:
+
+networks:
+  proxy-network:
+    driver: bridge

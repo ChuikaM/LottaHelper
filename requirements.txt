@@ -1,26 +1,25 @@
 Flask==3.0.3
-flask-cors
-requests==2.31.0
+flask_limiter
+flask_wtf
+requests>=2.31.0
 gunicorn==22.0.0
+
 transformers
 sentence-transformers==2.7.0
 torch
-openai
 torchvision
 torchaudio
+openai
 accelerate
 tqdm>=4.66.0
 numpy>=1.24.0
-flask_limiter
-flask_wtf
+
 celery
 redis
-
 
 sqlalchemy>=2.0.0
 
 python-dotenv>=1.0.0
-requests>=2.31.0
 
-pypdf>=3.17.0
-pdf2image
+yadisk
+pymupdf
